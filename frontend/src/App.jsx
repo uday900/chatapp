@@ -1,21 +1,25 @@
-import { useState } from 'react'
-import { Toaster } from "react-hot-toast";
-import './App.css'
-import { Route, Router } from 'react-router-dom';
+import { Route, Routes } from 'react-router-dom';
 import { REACT_ENDPOINTS } from './utils/endpoints';
 import LoginPage from './pages/LoginPage';
+import { Toaster } from 'react-hot-toast';
+import ProtectedRoute from './router/ProtectedRoute';
 
 function App() {
-  const [count, setCount] = useState(0)
 
   return (
     <>
     {/* Routes */}
-    <Router>
+    <Routes>
 
-      <Route path={REACT_ENDPOINTS.HOME} element={<>Home page</>} />
+        <Route path={REACT_ENDPOINTS.HOME} element={
+          
+      <ProtectedRoute> 
+        <>Home page</>
+      </ProtectedRoute>
+      } />
+
       <Route path={REACT_ENDPOINTS.LOGIN} element={<LoginPage/>} />
-    </Router>
+    </Routes>
 
       <Toaster
         position="top-right"

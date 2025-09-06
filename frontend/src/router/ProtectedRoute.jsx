@@ -4,7 +4,6 @@ import { API_ENDPOINTS } from "../utils/endpoints";
 
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
-
   if (!token) {
     return <Navigate to={API_ENDPOINTS.LOGIN} replace />;
   }

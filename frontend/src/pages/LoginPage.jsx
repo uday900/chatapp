@@ -1,8 +1,8 @@
 import React, { useState } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { loginUserApi } from "../redux/slice/authSlice";
+import toast from "react-hot-toast";
 
 const LoginPage = () => {
   const dispatch = useDispatch();

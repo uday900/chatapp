@@ -24,5 +24,5 @@ export const API_ENDPOINTS = {
 
 export const REACT_ENDPOINTS = {
     HOME: "/",
-    LOGIN: "/login"
+    LOGIN: "/auth/login"
 }
