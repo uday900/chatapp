@@ -12,7 +12,7 @@ export const API_ENDPOINTS = {
     USERS: '/users',
   
     // Chat endpoints
-    CHATS: '/chats',
+    CHATS: (userId) => `/chat?userId=${userId}`,
     CREATE_CHAT: '/chats',
     CHAT_MESSAGES: (chatId) => `/chats/${chatId}/messages`,
     SEND_MESSAGE: (chatId) => `/chats/${chatId}/messages`,

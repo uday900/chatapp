@@ -3,23 +3,24 @@ import { REACT_ENDPOINTS } from './utils/endpoints';
 import LoginPage from './pages/LoginPage';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './router/ProtectedRoute';
+import ChatWindow from './pages/ChatWindow';
 
 function App() {
 
   return (
     <>
-    {/* Routes */}
-    <Routes>
+      {/* Routes */}
+      <Routes>
 
         <Route path={REACT_ENDPOINTS.HOME} element={
-          
-      <ProtectedRoute> 
-        <>Home page</>
-      </ProtectedRoute>
-      } />
+          <ProtectedRoute>
+            <ChatWindow />
+          </ProtectedRoute>
+        } />
 
-      <Route path={REACT_ENDPOINTS.LOGIN} element={<LoginPage/>} />
-    </Routes>
+        <Route path={REACT_ENDPOINTS.LOGIN} element={<LoginPage />} />
+
+      </Routes>
 
       <Toaster
         position="top-right"

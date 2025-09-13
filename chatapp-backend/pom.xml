@@ -9,9 +9,9 @@
 		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.darla</groupId>
-	<artifactId>websockets_example</artifactId>
+	<artifactId>chatapp</artifactId>
 	<version>0.0.1-SNAPSHOT</version>
-	<name>websockets_example</name>
+	<name>chatapp</name>
 	<description>Demo project for Spring Boot</description>
 	<url/>
 	<licenses>

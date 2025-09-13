@@ -3,6 +3,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { loginUserApi } from "../redux/slice/authSlice";
 import toast from "react-hot-toast";
+import { REACT_ENDPOINTS } from "../utils/endpoints";
 
 const LoginPage = () => {
   const dispatch = useDispatch();
@@ -12,7 +13,10 @@ const LoginPage = () => {
     username: "",
     password: "",
   });
-  const { loginLoading } = useSelector((state) => state.auth);
+  const { 
+    loginLoading,
+    isAuthenticated
+   } = useSelector((state) => state.auth);
 
   const handleCredentialsChange = (e) => {
     setCredentials({
@@ -32,6 +36,10 @@ const LoginPage = () => {
     dispatch(loginUserApi(credentials))
   };
 
+  if (isAuthenticated) {
+    navigate(REACT_ENDPOINTS.HOME);
+  }
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <div className="w-full max-w-md p-8 bg-white rounded-2xl shadow-lg">
@@ -41,19 +49,21 @@ const LoginPage = () => {
           <input
             type="username"
             name="username"
-            placeholder="ex: uday@gmail.com"
+            placeholder="uday"
             value={credentials.username}
             onChange={handleCredentialsChange}
             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
           />
 
           <input
             type="password"
             name="password"
-            placeholder="********"
+            placeholder="user id"
             value={credentials.password}
             onChange={handleCredentialsChange}
             className="w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400"
+            required
           />
 
           <button

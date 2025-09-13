@@ -1,6 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
 import { STORAGE_KEYS } from "../../utils/constants";
-import { API_ENDPOINTS } from "../../utils/endpoints";
 import { showSuccess } from "../../utils/toast";
 
 // Async thunks for API calls
@@ -8,17 +7,24 @@ export const loginUserApi = createAsyncThunk(
   'auth/loginUserApi',
   async (credentials, { rejectWithValue }) => {
     try {
-        console.log("Making an api call: ", API_ENDPOINTS.LOGIN)
-      const response = await api.post(API_ENDPOINTS.LOGIN, credentials);
+      // console.log("Making an api call: ", API_ENDPOINTS.LOGIN)
+      // console.log("Body: ", credentials)
+      // const response = await api.post(API_ENDPOINTS.LOGIN, credentials);
 
-      console.log("Received data: ", response);
-      const { user, token } = response.data;
-      
+      // console.log("Received data: ", response);
+      // const { user, token } = response.data;
+
+      const userDetails = {
+        username: credentials.username,
+        userId: credentials.password,
+      }
+
       // Store token in localStorage
-      localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
-      
+      localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userDetails));
       showSuccess("Login successful!");
-      return { user, token };
+
+      return { userDetails, token: credentials.password };
+      // return { user, token }; 
     } catch (error) {
       const message = error.response?.data?.message || "Login failed";
       showError(message);
@@ -51,14 +57,14 @@ const authSlice = createSlice({
       state.error = null;
     },
     loginSuccess: (state, action) => {
-        const { user, token } = action.payload;
+      const { user, token } = action.payload;
       state.user = user;
       state.token = token;
       state.isAuthenticated = true;
       localStorage.setItem('user', JSON.stringify(user));
       localStorage.setItem(STORAGE_KEYS.ACCESS_TOKEN, token);
     },
-     logout: (state) => {
+    logout: (state) => {
       state.user = null;
       state.token = null;
       state.isAuthenticated = false;
@@ -67,7 +73,7 @@ const authSlice = createSlice({
     },
   },
 
-   extraReducers: (builder) => {
+  extraReducers: (builder) => {
     // Login
     builder
       .addCase(loginUserApi.pending, (state) => {
@@ -80,7 +86,7 @@ const authSlice = createSlice({
         state.token = action.payload.token;
         state.isAuthenticated = true;
         state.error = null;
-        localStorage.setItem('user', JSON.stringify(action.payload.user));
+        // localStorage.setItem('user', JSON.stringify(action.payload.user));
       })
       .addCase(loginUserApi.rejected, (state, action) => {
         state.loginLoading = false;
@@ -89,7 +95,7 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
       })
-    }
+  }
 });
 
 export const { loginSuccess, logout, clearError } = authSlice.actions;
