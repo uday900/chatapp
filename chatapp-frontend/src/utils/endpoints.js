@@ -12,10 +12,8 @@ export const API_ENDPOINTS = {
     USERS: '/users',
   
     // Chat endpoints
-    CHATS: (userId) => `/chat?userId=${userId}`,
-    CREATE_CHAT: '/chats',
+    CHATS: "/chats/my-chats",
     CHAT_MESSAGES: (chatId) => `/chats/${chatId}/messages`,
-    SEND_MESSAGE: (chatId) => `/chats/${chatId}/messages`,
     
     // File upload
     UPLOAD_FILE: '/upload',
@@ -24,5 +22,6 @@ export const API_ENDPOINTS = {
 
 export const REACT_ENDPOINTS = {
     HOME: "/",
-    LOGIN: "/auth/login"
+    LOGIN: "/auth/login",
+    SIGNUP: "/auth/register"
 }

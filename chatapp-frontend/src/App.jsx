@@ -1,9 +1,10 @@
 import { Route, Routes } from 'react-router-dom';
-import { REACT_ENDPOINTS } from './utils/endpoints';
+import { API_ENDPOINTS, REACT_ENDPOINTS } from './utils/endpoints';
 import LoginPage from './pages/LoginPage';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './router/ProtectedRoute';
-import ChatWindow from './pages/ChatWindow';
+import SignupPage from './pages/SignupPage';
+import ChatPage from './pages/ChatPage';
 
 function App() {
 
@@ -14,11 +15,12 @@ function App() {
 
         <Route path={REACT_ENDPOINTS.HOME} element={
           <ProtectedRoute>
-            <ChatWindow />
+            <ChatPage />
           </ProtectedRoute>
         } />
 
         <Route path={REACT_ENDPOINTS.LOGIN} element={<LoginPage />} />
+        <Route path={REACT_ENDPOINTS.SIGNUP} element={<SignupPage />} />
 
       </Routes>
 

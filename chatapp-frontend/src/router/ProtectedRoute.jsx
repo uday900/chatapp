@@ -5,6 +5,7 @@ import { API_ENDPOINTS } from "../utils/endpoints";
 const ProtectedRoute = ({ children }) => {
   const { token } = useSelector((state) => state.auth);
   if (!token) {
+    console.log("No token found, redirecting to login...");
     return <Navigate to={API_ENDPOINTS.LOGIN} replace />;
   }
 
