@@ -37,4 +37,30 @@ api.interceptors.response.use(
   }
 );
 
+api.interceptors.response.use(
+    (response) => response,
+    (error) => {
+        if (
+            !error.response ||
+            error.code === "ECONNABORTED"
+        ) {
+            console.error(
+                "Backend unavailable"
+            );
+
+            /*
+              Global UI state:
+              server down
+            */
+            window.dispatchEvent(
+                new CustomEvent(
+                    "server-down"
+                )
+            );
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 export default api;

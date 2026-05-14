@@ -7,6 +7,14 @@ const ChatMessage = sequelize.define("ChatMessage", {
         primaryKey: true,
         autoIncrement: true
     },
+    reply_to_message_id: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: 'chat_messages',
+            key: 'id'
+        }
+    },
     chat_id: {
         type: DataTypes.INTEGER,
         allowNull: false,

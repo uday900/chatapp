@@ -28,6 +28,10 @@ export const connectSocket = () => {
         console.log("Socket connected:", socket.id);
     });
 
+    socket.on("connect_error", (err) => {
+        console.error("Socket connection error:", err);
+    });
+
     socket.on("disconnect", () => {
         console.log("Socket disconnected.");
     });

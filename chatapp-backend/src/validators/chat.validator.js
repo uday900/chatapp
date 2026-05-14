@@ -27,12 +27,15 @@ exports.createChatSchema = joi.object({
 exports.chatSendMessageSchema = joi.object({
     chatId: joi.number().integer().positive().required(),
     message: joi.string().max(1000).required(),
-    user: joi.object({
-        id: joi.number().integer().positive().required()
-    }).required()
+    replyToMessageId: joi.number().integer().positive().optional()
 });
 
 exports.markMessagesAsReadSchema = joi.object({
     chatId: joi.number().integer().positive().required(),
     lastReadMessageId: joi.number().integer().positive().required()
 });
+
+exports.updateGroupInfo = joi.object({
+    name: joi.string().max(100).required(),
+    profilePictureUrl: joi.string().uri().required()
+})

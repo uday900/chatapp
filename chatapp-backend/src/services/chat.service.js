@@ -1,10 +1,11 @@
+const { Op } = require("sequelize");
 const sequelize = require("../config/db");
 const { mapToChatSummary, mapChatMessagesResponse } = require("../dto/chat.dto");
 const Chat = require("../models/Chat");
 const ChatMember = require("../models/ChatMember");
 const ChatMessage = require("../models/ChatMessage");
 const User = require("../models/User");
-const { invalidRequest } = require("../utils/errorFactory");
+const { invalidRequest, recordNotFound } = require("../utils/errorFactory");
 
 
 exports.getUserChats = async (userId) => {
@@ -45,44 +46,55 @@ exports.getUserChats = async (userId) => {
     });
 
     const mappedChats = await Promise.all(
-    chats.map(async (chat) => {
+        chats.map(async (chat) => {
 
-        const currentUserMember =
-            chat.allMembers.find(
-                m => m.user_id === userId
-            );
+            const currentUserMember =
+                chat.allMembers.find(
+                    m => m.user_id === userId
+                );
 
-        const messageStartDate =
-            currentUserMember?.chat_cleared_at ||
-            chat.createdAt;
+            const messageStartDate =
+                currentUserMember?.chat_cleared_at ||
+                chat.createdAt;
 
-        /*
-          Latest message after clear date
-        */
-        const latestMessage =
-            await ChatMessage.findOne({
-                where: {
-                    chat_id: chat.id,
-                    createdAt: {
-                        [Op.gt]:
-                            messageStartDate
-                    }
-                },
-                order: [
-                    ["createdAt", "DESC"]
-                ]
-            });
+            /*
+              Latest message after clear date
+            */
+            const latestMessage =
+                await ChatMessage.findOne({
+                    where: {
+                        chat_id: chat.id,
+                        createdAt: {
+                            [Op.gt]:
+                                messageStartDate
+                        }
+                    },
+                    order: [
+                        ["createdAt", "DESC"]
+                    ],
+                    include: [
+                        {
+                            model: User,
+                            as: "sender",
+                            attributes: [
+                                "id",
+                                "full_name",
+                                "profile_picture"
+                            ]
+                        }
+                    ]
+                });
 
-        /*
-          Unread count after clear date
-        */
-        const [result] =
-            await sequelize.query(`
+            /*
+              Unread count after clear date
+            */
+            const [result] =
+                await sequelize.query(`
                 SELECT COUNT(*) AS unread_count
                 FROM chat_messages
                 WHERE chat_id = :chatId
                   AND sender_id != :currentUserId
-                  AND created_at > :messageStartDate
+                  AND "createdAt" > :messageStartDate
                   AND id > COALESCE((
                       SELECT last_read_message_id
                       FROM chat_members
@@ -90,33 +102,40 @@ exports.getUserChats = async (userId) => {
                         AND user_id = :currentUserId
                   ), 0)
             `, {
-                replacements: {
-                    chatId: chat.id,
-                    currentUserId: userId,
-                    messageStartDate
-                }
-            });
+                    replacements: {
+                        chatId: chat.id,
+                        currentUserId: userId,
+                        messageStartDate
+                    }
+                });
 
-        const unreadCount =
-            parseInt(
-                result[0].unread_count
+            const unreadCount =
+                parseInt(
+                    result[0].unread_count
+                );
+
+            /*
+              override latest message manually
+            */
+            chat.ChatMessages =
+                latestMessage
+                    ? [latestMessage]
+                    : [];
+
+            return mapToChatSummary(
+                chat,
+                userId,
+                unreadCount
             );
+        })
+    );
 
-        /*
-          override latest message manually
-        */
-        chat.ChatMessages =
-            latestMessage
-                ? [latestMessage]
-                : [];
-
-        return mapToChatSummary(
-            chat,
-            userId,
-            unreadCount
-        );
-    })
-);
+    // Sort chats by last message created_at (most recent first), then by chat created_at
+    mappedChats.sort((a, b) => {
+        const aTime = a.lastMessage ? new Date(a.lastMessage.created_at) : new Date(a.created_at);
+        const bTime = b.lastMessage ? new Date(b.lastMessage.created_at) : new Date(b.created_at);
+        return bTime - aTime; // Descending order
+    });
 
     return mappedChats;
 };
@@ -124,32 +143,243 @@ exports.getUserChats = async (userId) => {
 exports.createNewChat = async (data) => {
     const { type, name, memberIds, userId } = data;
 
+    /*
+      Validation
+    */
     if (type === "ONE_TO_ONE" && memberIds.length !== 1) {
-        throw invalidRequest("ONE_TO_ONE chat must have exactly 2 members");
-    } else if (type === "GROUP" && memberIds.length < 2) {
-        throw invalidRequest("GROUP chat must have at least 2 members");
+        throw invalidRequest(
+            "ONE_TO_ONE chat must have exactly 1 other member"
+        );
     }
 
+    if (type === "GROUP" && memberIds.length < 1) {
+        throw invalidRequest(
+            "GROUP chat must have at least 2 other members"
+        );
+    }
+
+    /*
+      ONE_TO_ONE:
+      check existing direct chat first
+    */
+    if (type === "ONE_TO_ONE") {
+        const otherUserId = memberIds[0];
+
+        const [existingChats] = await sequelize.query(`
+        SELECT c.id
+        FROM chats c
+        JOIN chat_members cm1
+            ON c.id = cm1.chat_id
+        JOIN chat_members cm2
+            ON c.id = cm2.chat_id
+        WHERE c.type = 'ONE_TO_ONE'
+          AND cm1.user_id = :userId
+          AND cm2.user_id = :otherUserId
+        LIMIT 1
+    `, {
+            replacements: {
+                userId,
+                otherUserId
+            }
+        });
+
+        if (existingChats.length > 0) {
+            return {
+                chatId: existingChats[0].id,
+                created: false
+            };
+        }
+    }
+
+    /*
+      Create new chat
+    */
     const chat = await Chat.create({
-        type: type,
+        type,
         name: type === "GROUP" ? name : null
     });
 
+    /*
+      Creator role:
+      GROUP      -> ADMIN
+      ONE_TO_ONE -> MEMBER
+    */
     await ChatMember.create({
         chat_id: chat.id,
         user_id: userId,
-        role: "ADMIN"
+        role: type === "GROUP" ? "ADMIN" : "MEMBER"
     });
 
+    /*
+      Add selected members
+    */
     const memberEntries = memberIds.map(id => ({
         chat_id: chat.id,
         user_id: id,
         role: "MEMBER"
     }));
+
     await ChatMember.bulkCreate(memberEntries);
 
-    return chat.id;
-}
+    return {
+        chatId: chat.id,
+        created: true
+    };
+};
+
+exports.addMemberToGroup = async (chatId, targetUserId, currentUserId) => {
+    /*
+      Validate chat exists
+    */
+    const chat = await Chat.findByPk(chatId);
+
+    if (!chat) {
+        throw recordNotFound("Chat not found");
+    }
+
+    /*
+      Only GROUP supports add member
+    */
+    if (chat.type !== "GROUP") {
+        throw invalidRequest(
+            "Members can only be added to group chats"
+        );
+    }
+
+    /*
+      Current user must be ADMIN
+    */
+    const currentUserMember = await ChatMember.findOne({
+        where: {
+            chat_id: chatId,
+            user_id: currentUserId
+        }
+    });
+
+    if (!currentUserMember) {
+        throw invalidRequest(
+            "You are not a member of this group"
+        );
+    }
+
+    if (currentUserMember.role !== "ADMIN") {
+        throw invalidRequest(
+            "Only admins can add members"
+        );
+    }
+
+    /*
+      Prevent duplicate member add
+    */
+    const existingMember = await ChatMember.findOne({
+        where: {
+            chat_id: chatId,
+            user_id: targetUserId
+        }
+    });
+
+    if (existingMember) {
+        throw invalidRequest(
+            "User is already a member of this group"
+        );
+    }
+
+    /*
+      Add new member
+    */
+    await ChatMember.create({
+        chat_id: chatId,
+        user_id: targetUserId,
+        role: "MEMBER"
+    });
+
+    return {
+        success: true,
+        message: "Member added successfully"
+    };
+};
+
+exports.removeMemberFromGroup = async (
+    chatId,
+    targetUserId,
+    currentUserId
+) => {
+    /*
+      Validate chat exists
+    */
+    const chat = await Chat.findByPk(chatId);
+
+    if (!chat) {
+        throw recordNotFound("Chat not found");
+    }
+
+    /*
+      Only GROUP supports remove member
+    */
+    if (chat.type !== "GROUP") {
+        throw invalidRequest(
+            "Members can only be removed from group chats"
+        );
+    }
+
+    /*
+      Current user must be ADMIN
+    */
+    const currentUserMember = await ChatMember.findOne({
+        where: {
+            chat_id: chatId,
+            user_id: currentUserId
+        }
+    });
+
+    if (!currentUserMember) {
+        throw invalidRequest(
+            "You are not a member of this group"
+        );
+    }
+
+    if (currentUserMember.role !== "ADMIN") {
+        throw invalidRequest(
+            "Only admins can remove members"
+        );
+    }
+
+    /*
+      Target member must exist
+    */
+    const targetMember = await ChatMember.findOne({
+        where: {
+            chat_id: chatId,
+            user_id: targetUserId
+        }
+    });
+
+    if (!targetMember) {
+        throw recordNotFound(
+            "Target user is not a member of this group"
+        );
+    }
+
+    /*
+      Prevent removing self using this API
+      (use leave-group API separately)
+    */
+    if (targetUserId === currentUserId) {
+        throw invalidRequest(
+            "Use leave group API to remove yourself"
+        );
+    }
+
+    /*
+      Remove member
+    */
+    await targetMember.destroy();
+
+    return {
+        success: true,
+        message: "Member removed successfully"
+    };
+};
 
 exports.getChatMessages = async (chatId, userId) => {
     /*
@@ -176,7 +406,8 @@ exports.getChatMessages = async (chatId, userId) => {
                         attributes: [
                             "id",
                             "full_name",
-                            "profile_picture"
+                            "profile_picture",
+                            "last_seen"
                         ]
                     }
                 ]
@@ -352,5 +583,102 @@ exports.clearChatMessages = async (chatId, userId) => {
     });
     console.log(
         `Cleared messages for user [${userId}] in chat [${chatId}]`
+    );
+};
+
+exports.getGroupChatDetails = async (chatId, userId) => {
+    const chat = await Chat.findOne({
+        where: {
+            id: chatId,
+            type: "GROUP"
+        },
+        include: [
+            {
+                model: ChatMember,
+                as: "members",
+                where: {
+                    user_id: userId,
+                    left_at: null
+                },
+                attributes: [],
+                required: true
+            },
+            {
+                model: ChatMember,
+                as: "allMembers",
+                where: {
+                    left_at: null
+                },
+                include: [
+                    {
+                        model: User,
+                        as: "user",
+                        attributes: [
+                            "id",
+                            "full_name",
+                            "profile_picture",
+                            "mobile_number"
+                        ]
+                    }
+                ]
+            }
+        ]
+    });
+    if (!chat) {
+        throw invalidRequest(`Chat [${chatId}] not found or is not a group chat`);
+    }
+    return chat;
+};
+
+exports.leaveGroupChat = async (chatId, userId) => {
+    const chatMember = await ChatMember.findOne({
+        where: {
+            chat_id: chatId,
+            user_id: userId
+        }
+    });
+    if (!chatMember) {
+        throw invalidRequest(`User [${userId}] is not a member of chat [${chatId}]`);
+    }
+    if (chatMember.role === "ADMIN") {
+        const otherMembers = await ChatMember.findAll({
+            where: {
+                chat_id: chatId,
+                user_id: {
+                    [Op.ne]: userId
+                },
+                left_at: null
+            }
+        });
+        if (otherMembers.length > 0) {
+            const newAdmin = otherMembers[0];
+            await newAdmin.update({ role: "ADMIN" });
+        }
+    }
+    await chatMember.update({ left_at: new Date() });
+    console.log(
+        `User [${userId}] left group chat [${chatId}]`
+     );
+};
+
+exports.updateGroupInfo = async (data) =>{
+    const { chatId, currentUserId, chatName, chatProfilePicture } = data;
+    
+    const chat = await Chat.findOne({
+        where: {
+            id: chatId,
+            type: "GROUP",
+            user_id: currentUserId
+        }
+    });
+    if (!chat) {
+        throw invalidRequest(`Chat [${chatId}] not found or is not a group chat`);
+    }
+    await chat.update({
+        name: chatName,
+        profile_picture: chatProfilePicture
+    });
+    console.log(
+        `Updated group info for chat [${chatId}]`
     );
 };

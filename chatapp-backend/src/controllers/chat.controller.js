@@ -1,6 +1,8 @@
 const chatService = require("../services/chat.service");
-const {createChatSchema, markMessagesAsReadSchema} = require("../validators/chat.validator");
+const { createChatSchema, markMessagesAsReadSchema, updateGroupInfo } = require("../validators/chat.validator");
 const { invalidRequest } = require("../utils/errorFactory");
+const { successResponse } = require("../utils/response");
+const { SOCKET_EVENTS, SOCKET_ROOMS } = require("../constants/endpoints");
 
 exports.getUserChats = async (req, res, next) => {
     try {
@@ -20,7 +22,7 @@ exports.createNewChat = async (req, res, next) => {
         if (error) {
             throw invalidRequest(error.details[0].message);
         }
-        req.body.userId = req.user.id;
+        req.body.userId = req?.user?.id;
         const result = await chatService.createNewChat(req.body);
         res.status(201).json({
             success: true,
@@ -47,6 +49,10 @@ exports.getChatMessages = async (req, res, next) => {
 
 exports.markMessagesAsRead = async (req, res, next) => {
     try {
+        
+        console.log("params:", req.params);
+        console.log("query:", req.query);
+        console.log("body:", req.body);
         const { error } = markMessagesAsReadSchema.validate({
             chatId: req.params.id,
             lastReadMessageId: req.query.lastReadMessageId
@@ -54,13 +60,23 @@ exports.markMessagesAsRead = async (req, res, next) => {
         if (error) {
             throw invalidRequest(error.details[0].message);
         }
+
         const chatId = req.params.id;
         console.log("Marking messages as read for chatId:", chatId, "userId:", req?.user.id, "lastReadMessageId:", req.query.lastReadMessageId);
         await chatService.markMessagesAsRead(chatId, req?.user.id, req.query.lastReadMessageId);
-        res.status(200).json({
-            success: true,
-            data: null
+
+        // Send socket event to notify other user(s) in the chat about the read status update
+        const io = req.app.get("io");
+        io.to(SOCKET_ROOMS.CHAT_PREFIX + chatId).emit(SOCKET_EVENTS.MESSAGES_READ, {
+            chatId,
+            userId: req?.user.id,
+            lastReadMessageId: req.query.lastReadMessageId
         });
+        successResponse(
+            res,
+            null,
+            "Messages marked as read successfully"
+        );
     } catch (error) {
         next(error);
     }
@@ -77,6 +93,102 @@ exports.clearChatMessages = async (req, res, next) => {
             success: true,
             data: null
         });
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getGroupChatDetails = async (req, res, next) => {
+    try {
+        const chatId = req.params.id;
+        const result = await chatService.getGroupChatDetails(chatId, req.user.id);
+        successResponse(
+            res,
+            result,
+            "Group chat details fetched successfully"
+        );
+    } catch (error) {
+        next(error);
+    }   
+};
+
+exports.addMemberToGroup = async (req, res, next) => {
+    try {
+        const chatId = req.params.id;
+        const { targetUserId } = req.body;
+        const currentUserId = req.user.id;
+
+        const result = await chatService.addMemberToGroup(
+            chatId,
+            targetUserId,
+            currentUserId
+        );
+
+        successResponse(
+            res,
+            result,
+            "Member added successfully"
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+
+exports.removeMemberFromGroup = async (req, res, next) => {
+    try {
+        const chatId = req.params.id;
+        const targetUserId = req.params.userId;
+        const currentUserId = req.user.id;
+
+        const result = await chatService.removeMemberFromGroup(
+            chatId,
+            targetUserId,
+            currentUserId
+        );
+
+        successResponse(
+            res,
+            result,
+            "Member removed successfully"
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.leaveGroupChat = async (req, res, next) => {
+    try {
+        const chatId = req.params.id;
+        const currentUserId = req.user.id;
+        await chatService.leaveGroupChat(
+            chatId,
+            currentUserId
+        );
+        successResponse(
+            res,
+            null,
+            "Left group chat successfully"
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.updateGroupInfo = async (req, res, next) => {
+    try {
+        const { error } = updateGroupInfo.validate(req.body);
+        if (error) {
+            throw invalidRequest(error.details[0].message);
+        }
+        req.body.userId = req?.user?.id;
+
+        await chatService.updateGroupInfo(req.body);
+        successResponse(
+            res,
+            null,
+            "Group info updated successfully"
+        );
     } catch (error) {
         next(error);
     }

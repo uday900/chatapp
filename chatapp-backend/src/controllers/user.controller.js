@@ -3,6 +3,7 @@ const userService = require("../services/user.service");
 const { createUserSchema } = require("../validators/auth.validator");
 const AppError = require("../utils/AppError");
 const { recordNotFound } = require("../utils/errorFactory");
+const { successResponse } = require("../utils/response");
 
 
 exports.getAllUsers = async (req, res, next) => {
@@ -32,6 +33,33 @@ exports.getUserById = async (req, res, next) => {
       data: mapUserResponse(user)
     });
 
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getUserContacts = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const contacts = await userService.getUserContacts(userId);
+    res.status(200).json({
+      success: true,
+      data: contacts.map(mapUserResponse)
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getUserByMobileNumber = async (req, res, next) => {
+  try {
+    const { mobileNumber } = req.params;
+    const user = await userService.getUserByMobileNumber(mobileNumber);
+    successResponse(
+      res,
+      user,
+      "User fetched successfully"
+    );
   } catch (error) {
     next(error);
   }

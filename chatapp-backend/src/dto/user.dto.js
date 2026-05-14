@@ -3,7 +3,7 @@ exports.mapUserResponse = (user) => {
     id: user.id,
     full_name: user.full_name,
     email: user.email,
-    mobile: user.mobile,
+    mobile: user.mobile_number || null,
     profile_picture: user.profile_picture,
     last_seen: user.last_seen
   };

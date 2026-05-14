@@ -3,10 +3,12 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 require("dotenv").config();
+require("./config/redis");
 
 const routes = require("./routes");
 const sequelize = require("./config/db");
 const initSocket = require("./socket");
+const { swaggerUi, swaggerSpec } = require("./config/swagger");
 
 const errorHandler = require("./middlewares/errorHandler");
 const AppError = require("./utils/AppError");
@@ -18,6 +20,11 @@ const app = express();
 app.use(cors({
   origin: "*"
 }));
+app.use(
+    "/api-docs",
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerSpec)
+);
 app.use(express.json());
 
 // Logs all incoming requests
@@ -36,6 +43,7 @@ const io = new Server(server, {
     origin: "*"
   }
 });
+app.set("io", io);
 initSocket(io);
 
 /*

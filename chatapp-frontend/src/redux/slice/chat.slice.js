@@ -108,6 +108,30 @@ export const getChatMessagesApi = createAsyncThunk(
 );
 
 // ==============================
+// Mark chat message as read API
+// ==============================
+export const markChatMessagesRead = createAsyncThunk(
+    "chat/markChatMessagesRead",
+    async ({ chatId, lastReadMessageId = 0 }, { rejectWithValue }) => {
+        try {
+            console.log("Making an api call to /chats/${chatId}/messages/read?lastReadMessageId=${lastReadMessageId}",)
+            const response = api.put(
+                `/chats/${chatId}/messages/read?lastReadMessageId=${lastReadMessageId}`,
+                {}
+            )
+            return {
+                chatId,
+                lastReadMessageId,
+                data: response?.data
+            }
+        } catch (error) {
+            console.error(error?.response?.data);
+            return rejectWithValue(error?.response?.data || error.message);
+        }
+    }
+);
+
+// ==============================
 // Slice
 // ==============================
 const chatSlice = createSlice({
@@ -115,7 +139,7 @@ const chatSlice = createSlice({
     initialState,
     reducers: {
         setSelectedChat: (state, action) => {
-            console.log("Selected chat:", action.payload);
+            console.log(`Selected chat [${action.payload?.chatId}]:`, action.payload);
             state.selectedChat = action.payload;
         },
         clearSelectedChat: (state) => {
@@ -131,8 +155,9 @@ const chatSlice = createSlice({
 
         appendNewMessage: (state, action) => {
 
+            console.log("Appending new message:", action.payload);
             const newMessage = action.payload;
-            const chatId = newMessage.chat_id;
+            const chatId = newMessage.chatId;
 
             if (!state.messages[chatId]) {
                 state.messages[chatId] = [];
@@ -148,15 +173,19 @@ const chatSlice = createSlice({
 
             // also update last message in sidebar
             state.chats = state.chats.map((chat) =>
-                chat.id === chatId
+                chat.chatId === chatId
                     ? {
                         ...chat,
                         lastMessage: {
                             id: newMessage.id,
                             message: newMessage.message,
                             sender_id: newMessage.sender_id,
-                            created_at: newMessage.createdAt,
+                            created_at: newMessage.created_at,
                         },
+                        unreadCount:
+                            state.selectedChat?.chatId === chatId
+                                ? 0
+                                : (chat.unreadCount || 0) + 1,
                     }
                     : chat
             )
@@ -172,6 +201,59 @@ const chatSlice = createSlice({
                     return bTime - aTime; // latest first
                 });;
         },
+
+        resetUnreadCount: (state, action) => {
+            const chatId = action.payload;
+            state.chats = state.chats.map((chat) =>
+                chat.chatId === chatId
+                    ? { ...chat, unreadCount: 0 }
+                    : chat
+            );
+            /*
+    also update selectedChat
+    */
+            if (
+                state.selectedChat?.chatId === chatId
+            ) {
+                state.selectedChat = {
+                    ...state.selectedChat,
+                    unreadCount: 0
+                };
+            }
+        },
+
+        markMessagesRead: (state, action) => {
+            console.log("payload for markMessagesRead:", action.payload);
+            const { chatId, lastReadMessageId } = action.payload;
+            const parsedChatId = Number(chatId);
+            console.log(
+                "payload chatId:",
+                parsedChatId
+            );
+            state.chats = state.chats.map((chat) =>
+                chat.chatId === parsedChatId
+                    ? { ...chat, lastReadMessageId }
+                    : chat
+            );
+
+
+
+            state.chats.forEach((chat) => {
+                console.log(
+                    "state chatId:",
+                    chat.chatId,
+                    "match:",
+                    chat.chatId === parsedChatId
+                );
+            });
+            // also update on side bar
+            if (state.selectedChat?.chatId === parsedChatId) {
+                state.selectedChat.lastReadMessageId =
+                    Number(lastReadMessageId);
+            }
+            console.log("updated selected chat lastread", state.selectedChat);
+        }
+
     },
     extraReducers: (builder) => {
         builder
@@ -210,6 +292,11 @@ const chatSlice = createSlice({
                     state.messagesLoading = false;
                     state.messagesError = null;
 
+                    console.log(
+                        "Storing messages for chatId:",
+                        action.payload.chatId,
+                        action.payload.messages
+                    );
                     // store messages by chatId
                     state.messages[action.payload.chatId] =
                         action.payload.messages;
@@ -241,6 +328,8 @@ export const {
     clearMessagesError,
 
     appendNewMessage,
+    resetUnreadCount,
+    markMessagesRead
 } = chatSlice.actions;
 
 export default chatSlice.reducer;
