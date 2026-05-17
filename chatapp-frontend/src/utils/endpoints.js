@@ -10,10 +10,17 @@ export const API_ENDPOINTS = {
     PROFILE: '/user/profile',
     UPDATE_PROFILE: '/user/profile',
     USERS: '/users',
+    USER_DETAILS: (userId) => `/users/${userId}`,
+    CHAT_MEMBER: (chatId, memberId) => `/chats/${chatId}/members/${memberId}`,
   
     // Chat endpoints
     CHATS: "/chats/my-chats",
     CHAT_MESSAGES: (chatId) => `/chats/${chatId}/messages`,
+    CHAT_CLEAR: (chatId) => `/chats/${chatId}/clear`,
+    CHAT_ADD_MEMBERS: (chatId) => `/chats/${chatId}/members`,
+    CHAT_AVAILABLE_MEMBERS: (chatId) => `/chats/${chatId}/available-members`,
+    CONTACTS: "/users/contacts",
+    USER_BY_MOBILE: (mobile) => `/users/mobile/${mobile}`,
     GROUP_DETAILS: (chatId) => `/chats/${chatId}/group-details`,
 
     // Chat socket events
@@ -42,5 +49,6 @@ export const REACT_ENDPOINTS = {
     HOME: "/",
     LOGIN: "/auth/login",
     SIGNUP: "/auth/register",
-    GROUP_DETAILS: "/group-details/:chatId"
+    GROUP_DETAILS: "/group-details/:chatId",
+    SETTINGS: "/settings"
 }

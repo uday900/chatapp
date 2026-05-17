@@ -41,7 +41,8 @@ exports.getUserById = async (req, res, next) => {
 exports.getUserContacts = async (req, res, next) => {
   try {
     const userId = req.user.id;
-    const contacts = await userService.getUserContacts(userId);
+    const searchQuery = req.query.search || null;
+    const contacts = await userService.getUserContacts(userId, searchQuery);
     res.status(200).json({
       success: true,
       data: contacts.map(mapUserResponse)

@@ -227,7 +227,16 @@ exports.createNewChat = async (data) => {
     };
 };
 
-exports.addMemberToGroup = async (chatId, targetUserId, currentUserId) => {
+exports.addMemberToGroup = async (chatId, targetUserIds, currentUserId) => {
+    const rawTargetIds = Array.isArray(targetUserIds)
+        ? targetUserIds
+        : [targetUserIds];
+    const uniqueTargetIds = [...new Set(rawTargetIds.filter(id => Number.isInteger(id) && id > 0))];
+
+    if (!uniqueTargetIds.length) {
+        throw invalidRequest("At least one valid target user ID is required");
+    }
+
     /*
       Validate chat exists
     */
@@ -269,33 +278,42 @@ exports.addMemberToGroup = async (chatId, targetUserId, currentUserId) => {
     }
 
     /*
-      Prevent duplicate member add
+      Determine which users are already in the group
     */
-    const existingMember = await ChatMember.findOne({
+    const existingMembers = await ChatMember.findAll({
         where: {
             chat_id: chatId,
-            user_id: targetUserId
+            user_id: uniqueTargetIds
         }
     });
 
-    if (existingMember) {
-        throw invalidRequest(
-            "User is already a member of this group"
+    const existingUserIds = existingMembers.map(member => member.user_id);
+    const usersToAdd = uniqueTargetIds.filter(
+        id => !existingUserIds.includes(id)
+    );
+
+    if (existingUserIds.length) {
+        console.warn(
+            `Ignored already-present group member(s) for chat ${chatId}: ${existingUserIds.join(", ")}`
         );
     }
 
-    /*
-      Add new member
-    */
-    await ChatMember.create({
-        chat_id: chatId,
-        user_id: targetUserId,
-        role: "MEMBER"
-    });
+    if (usersToAdd.length) {
+        const memberEntries = usersToAdd.map(id => ({
+            chat_id: chatId,
+            user_id: id,
+            role: "MEMBER"
+        }));
+        await ChatMember.bulkCreate(memberEntries);
+    }
 
     return {
         success: true,
-        message: "Member added successfully"
+        message: usersToAdd.length
+            ? "Member(s) added successfully"
+            : "No new members were added",
+        added: usersToAdd,
+        ignored: existingUserIds
     };
 };
 
@@ -681,4 +699,88 @@ exports.updateGroupInfo = async (data) =>{
     console.log(
         `Updated group info for chat [${chatId}]`
     );
+};
+
+exports.getAvailableMembers = async (groupId, userId) => {
+    /*
+      Validate chat exists and is a GROUP
+    */
+    const chat = await Chat.findByPk(groupId);
+
+    if (!chat) {
+        throw recordNotFound("Chat not found");
+    }
+
+    if (chat.type !== "GROUP") {
+        throw invalidRequest(
+            "Available members can only be fetched for group chats"
+        );
+    }
+
+    /*
+      Validate user is a member
+    */
+    const userMember = await ChatMember.findOne({
+        where: {
+            chat_id: groupId,
+            user_id: userId
+        }
+    });
+
+    if (!userMember) {
+        throw invalidRequest(
+            "You are not a member of this group"
+        );
+    }
+
+    /*
+      Fetch user's contacts
+    */
+    const contacts = await sequelize.query(`
+        SELECT DISTINCT
+            u.id,
+            u.full_name,
+            u.profile_picture,
+            u.mobile_number
+        FROM chat_members cm1
+        JOIN chat_members cm2
+            ON cm1.chat_id = cm2.chat_id
+        JOIN users u
+            ON u.id = cm2.user_id
+        WHERE cm1.user_id = :userId
+          AND cm2.user_id != :userId
+        ORDER BY u.full_name
+    `, {
+        replacements: { userId },
+        type: sequelize.QueryTypes.SELECT
+    });
+
+    /*
+      Fetch members already in the group
+    */
+    const groupMembers = await ChatMember.findAll({
+        where: {
+            chat_id: groupId
+        },
+        attributes: ["user_id"]
+    });
+
+    const groupMemberIds = groupMembers.map(
+        member => member.user_id
+    );
+
+    /*
+      Map contacts with alreadyInGroup flag
+    */
+    const availableMembers = contacts.map(contact => ({
+        id: contact.id,
+        full_name: contact.full_name,
+        mobile: contact.mobile_number,
+        profile_picture: contact.profile_picture,
+        alreadyInGroup: groupMemberIds.includes(
+            contact.id
+        )
+    }));
+
+    return availableMembers;
 };

@@ -24,6 +24,19 @@ exports.createChatSchema = joi.object({
         })
 });
 
+exports.addGroupMembersSchema = joi.object({
+    targetUserIds: joi.alternatives().try(
+        joi.number().integer().positive(),
+        joi.array().items(joi.number().integer().positive()).min(1)
+    ).required()
+        .messages({
+            "any.required": "targetUserIds is required",
+            "alternatives.types": "targetUserIds must be a positive integer or an array of positive integers",
+            "array.min": "targetUserIds must contain at least 1 user id",
+            "array.items": "targetUserIds must contain positive integers only"
+        })
+});
+
 exports.chatSendMessageSchema = joi.object({
     chatId: joi.number().integer().positive().required(),
     message: joi.string().max(1000).required(),

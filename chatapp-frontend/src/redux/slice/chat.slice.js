@@ -1,4 +1,5 @@
 import { createAsyncThunk, createSlice } from "@reduxjs/toolkit";
+import { showError } from "../../utils/toast";
 import { API_ENDPOINTS } from "../../utils/endpoints";
 import api from "../../api/axios";
 
@@ -102,6 +103,31 @@ export const getChatMessagesApi = createAsyncThunk(
 
             showError(message);
 
+            return rejectWithValue(message);
+        }
+    }
+);
+
+// ==============================
+// Clear chat messages API
+// ==============================
+export const clearChatMessagesApi = createAsyncThunk(
+    "chat/clearChatMessagesApi",
+    async (chatId, { rejectWithValue }) => {
+        try {
+            const response = await api.delete(
+                API_ENDPOINTS.CHAT_CLEAR(chatId)
+            );
+            return {
+                chatId,
+                data: response?.data,
+            };
+        } catch (error) {
+            console.error("Clear chat error:", error?.response?.data || error.message);
+            const message =
+                error?.response?.data?.message ||
+                "Failed to clear chat";
+            showError(message);
             return rejectWithValue(message);
         }
     }
@@ -317,7 +343,26 @@ const chatSlice = createSlice({
                         action.payload ||
                         "Failed to load messages";
                 }
-            );
+            )
+            .addCase(clearChatMessagesApi.fulfilled, (state, action) => {
+                const chatId = action.payload.chatId;
+                state.messages[chatId] = [];
+                state.chats = state.chats.map((chat) =>
+                    chat.chatId === chatId
+                        ? {
+                            ...chat,
+                            lastMessage: null,
+                            lastReadMessageId: 0,
+                        }
+                        : chat
+                );
+                if (state.selectedChat?.chatId === chatId) {
+                    state.selectedChat = {
+                        ...state.selectedChat,
+                        lastReadMessageId: 0,
+                    };
+                }
+            });
     }
 });
 

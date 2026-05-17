@@ -192,4 +192,24 @@ router.delete("/:id/leave", chatController.leaveGroupChat);
  *         description: Group chat info updated successfully
  */
 router.put("/update-group-info", chatController.updateGroupInfo);
+
+/**
+ * @swagger
+ * /chats/{groupId}/available-members:
+ *   get:
+ *     summary: Get available members for group chat
+ *     tags: [Chats]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: groupId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Available members fetched successfully
+ */
+router.get("/:groupId/available-members", chatController.getAvailableMembers);
 module.exports = router;

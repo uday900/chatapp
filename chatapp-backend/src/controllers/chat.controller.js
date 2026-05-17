@@ -1,5 +1,5 @@
 const chatService = require("../services/chat.service");
-const { createChatSchema, markMessagesAsReadSchema, updateGroupInfo } = require("../validators/chat.validator");
+const { createChatSchema, markMessagesAsReadSchema, updateGroupInfo, addGroupMembersSchema } = require("../validators/chat.validator");
 const { invalidRequest } = require("../utils/errorFactory");
 const { successResponse } = require("../utils/response");
 const { SOCKET_EVENTS, SOCKET_ROOMS } = require("../constants/endpoints");
@@ -11,7 +11,7 @@ exports.getUserChats = async (req, res, next) => {
             success: true,
             data: result
         });
-    } catch (error) {
+    } catch (error) {getUserContacts
         next(error);
     }
 };
@@ -115,19 +115,36 @@ exports.getGroupChatDetails = async (req, res, next) => {
 exports.addMemberToGroup = async (req, res, next) => {
     try {
         const chatId = req.params.id;
-        const { targetUserId } = req.body;
+        const payload = {
+            targetUserIds: req.body.targetUserIds ?? req.body.targetUserId
+        };
+        const { error } = addGroupMembersSchema.validate(payload);
+        if (error) {
+            throw invalidRequest(error.details[0].message);
+        }
+
+        const rawTargetUserIds = payload.targetUserIds;
+        const targetUserIds = Array.isArray(rawTargetUserIds)
+            ? rawTargetUserIds
+            : [rawTargetUserIds];
         const currentUserId = req.user.id;
 
         const result = await chatService.addMemberToGroup(
             chatId,
-            targetUserId,
+            targetUserIds,
             currentUserId
         );
+
+        if (result.ignored?.length) {
+            console.warn(
+                `Ignored already-present group member(s) for chat ${chatId}: ${result.ignored.join(", ")}`
+            );
+        }
 
         successResponse(
             res,
             result,
-            "Member added successfully"
+            result.message || "Member(s) added successfully"
         );
     } catch (error) {
         next(error);
@@ -188,6 +205,26 @@ exports.updateGroupInfo = async (req, res, next) => {
             res,
             null,
             "Group info updated successfully"
+        );
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getAvailableMembers = async (req, res, next) => {
+    try {
+        const groupId = req.params.groupId;
+        const currentUserId = req.user.id;
+
+        const availableMembers = await chatService.getAvailableMembers(
+            groupId,
+            currentUserId
+        );
+
+        successResponse(
+            res,
+            availableMembers,
+            "Available members fetched successfully"
         );
     } catch (error) {
         next(error);

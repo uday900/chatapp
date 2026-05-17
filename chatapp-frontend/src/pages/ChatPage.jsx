@@ -6,117 +6,23 @@ import {
   getMyChatsApi,
   getChatMessagesApi,
   setSelectedChat,
+  clearChatMessagesApi,
   appendNewMessage,
   markChatMessagesRead,
   resetUnreadCount,
   markMessagesRead
 } from "../redux/slice/chat.slice";
+import api from "../api/axios";
 import { getSocket } from "../socket/socket";
-import { API_ENDPOINTS } from "../utils/endpoints";
-import { formatLastSeen } from "../utils/date.util";
+import { API_ENDPOINTS, REACT_ENDPOINTS } from "../utils/endpoints";
+import {
+  formatLastSeen,
+  formatChatTimestamp,
+  formatMessageDateLabel,
+} from "../utils/date.util";
 import { getProfileImage } from "../utils/constants";
-
-function formatChatTimestamp(dateValue) {
-  if (!dateValue) return "";
-
-  const date = new Date(dateValue);
-  const now = new Date();
-
-  const diffMs = now - date;
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-
-  const isToday =
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear();
-
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
-
-  // Just now
-  if (diffSeconds < 60) {
-    return "Just now";
-  }
-
-  // 1 min, 2 mins...
-  if (diffMinutes < 60) {
-    return `${diffMinutes} min${diffMinutes > 1 ? "s" : ""}`;
-  }
-
-  // Today → show time like 11:00 AM
-  if (isToday) {
-    return date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    });
-  }
-
-  // Yesterday → show date like 09 May
-  if (isYesterday) {
-    return date.toLocaleDateString([], {
-      day: "2-digit",
-      month: "short",
-    });
-  }
-
-  // Older → show date like 09 May
-  return date.toLocaleDateString([], {
-    day: "2-digit",
-    month: "short",
-  });
-}
-
-function formatMessageDateLabel(dateValue) {
-  if (!dateValue) return "";
-
-  const date = new Date(dateValue);
-  const now = new Date();
-
-  const isSameDay =
-    date.getDate() === now.getDate() &&
-    date.getMonth() === now.getMonth() &&
-    date.getFullYear() === now.getFullYear();
-
-  if (isSameDay) {
-    return "Today";
-  }
-
-  const yesterday = new Date();
-  yesterday.setDate(now.getDate() - 1);
-
-  const isYesterday =
-    date.getDate() === yesterday.getDate() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getFullYear() === yesterday.getFullYear();
-
-  if (isYesterday) {
-    return "Yesterday";
-  }
-
-  const isSameYear =
-    date.getFullYear() === now.getFullYear();
-
-  if (isSameYear) {
-    return date.toLocaleDateString([], {
-      day: "numeric",
-      month: "short",
-    });
-  }
-
-  return date.toLocaleDateString([], {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
+import { showError } from "../utils/toast";
+import AddGroupMemberModal from "../components/AddGroupMemberModal";
 
 export default function ChatPage() {
   const dispatch = useDispatch();
@@ -133,9 +39,16 @@ export default function ChatPage() {
 
   const [input, setInput] = useState("");
   const [isOnline, setIsOnline] = useState(false);
+  const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearChatId, setClearChatId] = useState(null);
+  const [contactSearch, setContactSearch] = useState("");
+  const [contacts, setContacts] = useState([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
   const typingTimeoutRef = useRef(null);
   const [typingUser, setTypingUser] = useState(null);
-  const { messages, messagesLoading, } = useSelector((state) => state.chat);
+  const { messages } = useSelector((state) => state.chat);
 
   useEffect(() => {
     dispatch(getMyChatsApi());
@@ -185,6 +98,27 @@ export default function ChatPage() {
   }, [selectedChat, messages]);
 
   useEffect(() => {
+    const loadContacts = async () => {
+      setContactsLoading(true);
+      try {
+        const response = await api.get(API_ENDPOINTS.CONTACTS, {
+          params: { search: contactSearch },
+        });
+        setContacts(response.data?.data || []);
+      } catch (error) {
+        showError(
+          error?.response?.data?.message ||
+            "Unable to load contacts. Please try again."
+        );
+      } finally {
+        setContactsLoading(false);
+      }
+    };
+
+    loadContacts();
+  }, [contactSearch]);
+
+  useEffect(() => {
     const socket = getSocket();
 
     if (
@@ -231,7 +165,7 @@ export default function ChatPage() {
         handleNewMessage
       );
     };
-  }, []);
+  }, [dispatch]);
 
   const activeMessages = useMemo(() => {
     if (!selectedChat?.chatId) return [];
@@ -246,6 +180,38 @@ export default function ChatPage() {
     }
     dispatch(setSelectedChat(updatedChat));
     // dispatch(getChatMessagesApi(chat.chatId));
+  };
+
+  const toggleHeaderMenu = (event) => {
+    event?.stopPropagation();
+    setShowHeaderMenu((value) => !value);
+  };
+
+  const openAddMemberModal = () => {
+    setShowHeaderMenu(false);
+    setShowAddMemberModal(true);
+  };
+
+  const closeAddMemberModal = () => {
+    setShowAddMemberModal(false);
+  };
+
+  const openClearChatModal = (event) => {
+    event?.stopPropagation();
+    setShowHeaderMenu(false);
+    setClearChatId(selectedChat?.chatId);
+    setShowClearConfirm(true);
+  };
+
+  const closeClearChatModal = () => {
+    setShowClearConfirm(false);
+    setClearChatId(null);
+  };
+
+  const handleClearChatConfirm = () => {
+    if (!clearChatId) return;
+    dispatch(clearChatMessagesApi(clearChatId));
+    closeClearChatModal();
   };
 
   const handleSend = () => {
@@ -304,7 +270,7 @@ export default function ChatPage() {
       console.log("Clearing heartbeat interval");
       clearInterval(heartbeatInterval);
     };
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -356,7 +322,7 @@ export default function ChatPage() {
       socket.off(API_ENDPOINTS.PRESENCE_ONLINE);
       socket.off(API_ENDPOINTS.PRESENCE_OFFLINE);
     };
-  }, [selectedChat?.chatId, dispatch]);
+  }, [selectedChat, dispatch]);
 
   useEffect(() => {
     const socket = getSocket();
@@ -408,7 +374,7 @@ export default function ChatPage() {
         handleTypingStopped
       );
     };
-  }, [selectedChat?.chatId]);
+  }, [selectedChat?.chatId, dispatch]);
 
   return (
     <div className="h-screen flex bg-[#f8fafc]">
@@ -416,30 +382,59 @@ export default function ChatPage() {
       <aside className="w-[360px] bg-white border-r border-gray-200 flex flex-col">
         {/* Header */}
         <div className="p-5 border-b border-gray-100">
-          <div className="flex items-center gap-3 mb-4">
-            <img
-              src={getProfileImage(user?.full_name, user?.id)}
-              alt="profile"
-              className="w-11 h-11 rounded-full object-cover"
-            />
+            <button
+              type="button"
+              onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
+              className="w-full text-left"
+            >
+              <div className="flex items-center gap-3 mb-4 cursor-pointer">
+                <img
+                  src={getProfileImage(user?.full_name, user?.id)}
+                  alt="profile"
+                  className="w-11 h-11 rounded-full object-cover"
+                />
 
-            <div>
-              <h2 className="font-semibold text-gray-900">
-                {user?.full_name || "User"}
-              </h2>
-              <p className="text-sm text-gray-500">{user?.email}</p>
+                <div>
+                  <h2 className="font-semibold text-gray-900">
+                    {user?.full_name || "User"}
+                  </h2>
+                  <p className="text-sm text-gray-500">{user?.email}</p>
+                </div>
+              </div>
+            </button>
 
+            <div className="mb-4">
+              <input
+                type="text"
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+                placeholder="Search contacts"
+                className="w-full rounded-full border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black/10"
+              />
+            </div>
+
+            <div className="mb-3">
+              <div className="text-sm font-semibold text-gray-900">Contacts</div>
+            </div>
+
+            <div className="space-y-2">
+              {contactsLoading ? (
+                <div className="text-sm text-gray-500">Loading contacts...</div>
+              ) : contacts.length === 0 ? (
+                <div className="text-sm text-gray-500">No contacts found.</div>
+              ) : (
+                contacts.map((contact) => (
+                  <div
+                    key={contact.id}
+                    className="rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3"
+                  >
+                    <p className="font-medium text-gray-900">{contact.full_name}</p>
+                    <p className="text-sm text-gray-500">{contact.mobile || contact.mobile_number}</p>
+                  </div>
+                ))
+              )}
             </div>
           </div>
-
-          <div className="flex items-center justify-between">
-            <h3 className="font-semibold text-gray-900">Chats</h3>
-            <button className="text-sm text-indigo-600 font-medium hover:underline">
-              New Chat
-            </button>
-          </div>
-        </div>
-
         {/* Chat List */}
         <div className="flex-1 overflow-y-auto">
           {chatsLoading ? (
@@ -468,16 +463,20 @@ export default function ChatPage() {
                   />
 
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-medium text-gray-900 truncate">
-                        {chat.name}
-                      </p>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="min-w-0 pr-2">
+                        <p className="font-medium text-gray-900 truncate">
+                          {chat.name}
+                        </p>
+                      </div>
 
-                      <span className="text-xs text-gray-500 ml-2">
-                        {formatChatTimestamp(
-                          chat.lastMessage?.created_at
-                        )}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500">
+                          {formatChatTimestamp(
+                            chat.lastMessage?.created_at
+                          )}
+                        </span>
+                      </div>
                     </div>
 
                     {/* <p className="text-sm text-gray-500 truncate mt-1">
@@ -540,37 +539,104 @@ export default function ChatPage() {
         ) : (
           <>
             {/* Chat Header */}
-            <div
-              className={`h-16 px-5 bg-white border-b border-gray-200 flex items-center gap-3 ${selectedChat?.type === 'GROUP' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
-              onClick={() => {
-                if (selectedChat?.type === 'GROUP') {
-                  navigate(`/group-details/${selectedChat.chatId}`);
-                }
-              }}
-            >
-              <img
-                src={getProfileImage(selectedChat.name, selectedChat?.other_user_id)}
-                alt={selectedChat.name}
-                className="w-10 h-10 rounded-full object-cover"
-              />
+            <div className="relative">
+              <div
+                className={`h-16 px-5 bg-white border-b border-gray-200 flex items-center justify-between gap-3 ${selectedChat?.type === 'GROUP' ? 'cursor-pointer hover:bg-gray-50' : ''}`}
+                onClick={() => {
+                  if (selectedChat?.type === 'GROUP') {
+                    navigate(`/group-details/${selectedChat.chatId}`);
+                  }
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={getProfileImage(selectedChat.name, selectedChat?.other_user_id)}
+                    alt={selectedChat.name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
 
-              <div>
-                <h3 className="font-semibold text-gray-900">
-                  {selectedChat.name}
-                </h3>
+                  <div>
+                    <h3 className="font-semibold text-gray-900">
+                      {selectedChat.name}
+                    </h3>
 
-                <p className="text-xs text-gray-500">
-                  {typingUser
-                    ? "typing..."
-                    : (isOnline || selectedChat?.isOnline)
-                      ? "Online"
-                      : selectedChat?.last_seen
-                        ? `Last seen ${formatLastSeen(
-                          selectedChat.last_seen
-                        )}`
-                        : "Group chat"}
-                </p>
+                    <p className="text-xs text-gray-500">
+                      {typingUser
+                        ? "typing..."
+                        : (isOnline || selectedChat?.isOnline)
+                          ? "Online"
+                          : selectedChat?.last_seen
+                            ? `Last seen ${formatLastSeen(
+                              selectedChat.last_seen
+                            )}`
+                            : "Group chat"}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={(e) => toggleHeaderMenu(e)}
+                  className="p-2 rounded-full text-black hover:bg-gray-100"
+                  aria-label="Chat menu"
+                >
+                  <span className="text-lg leading-none">⋮</span>
+                </button>
               </div>
+
+              {showHeaderMenu && (
+                <div className="absolute top-full right-4 z-30 mt-2 w-44 rounded-3xl bg-white border border-gray-200 shadow-xl">
+                  {selectedChat?.type === "GROUP" && (
+                    <button
+                      onClick={openAddMemberModal}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-gray-100"
+                    >
+                      Add member
+                    </button>
+                  )}
+                  <button
+                    onClick={openClearChatModal}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-gray-100"
+                  >
+                    Clear chat
+                  </button>
+                </div>
+              )}
+
+              {showAddMemberModal && (
+                <AddGroupMemberModal
+                  open={showAddMemberModal}
+                  chatId={selectedChat?.chatId}
+                  onClose={closeAddMemberModal}
+                  onMembersAdded={() => dispatch(getMyChatsApi())}
+                />
+              )}
+
+              {showClearConfirm && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+                  <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
+                    <h2 className="text-lg font-semibold text-gray-900 mb-3">
+                      Clear chat
+                    </h2>
+                    <p className="text-sm text-gray-600 mb-6">
+                      Are you sure you want to clear this chat? This will remove all messages from the conversation.
+                    </p>
+                    <div className="flex justify-end gap-3">
+                      <button
+                        onClick={closeClearChatModal}
+                        className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={handleClearChatConfirm}
+                        className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
+                      >
+                        Proceed
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Messages */}
@@ -709,7 +775,8 @@ export default function ChatPage() {
 
                 <button
                   onClick={handleSend}
-                  className="h-12 px-6 rounded-full bg-black text-white font-medium hover:opacity-90 transition"
+                  disabled={!input.trim()}
+                  className={`h-12 px-6 rounded-full text-white font-medium transition ${input.trim() ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"}`}
                 >
                   Send
                 </button>

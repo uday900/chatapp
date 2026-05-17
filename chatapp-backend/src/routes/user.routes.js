@@ -27,6 +27,13 @@ router.get(URL_SEPARATOR, userController.getAllUsers);
  *     tags: [Users]
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: Search contacts by name or mobile number
  *     responses:
  *       200:
  *         description: Contacts fetched successfully

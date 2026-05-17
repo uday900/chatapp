@@ -6,6 +6,7 @@ import ProtectedRoute from './router/ProtectedRoute';
 import SignupPage from './pages/SignupPage';
 import ChatPage from './pages/ChatPage';
 import GroupDetailsPage from './pages/GroupDetailsPage';
+import SettingsPage from './pages/SettingsPage';
 import { useEffect } from 'react';
 
 function App() {
@@ -43,6 +44,12 @@ function App() {
         <Route path="/group-details/:chatId" element={
           <ProtectedRoute>
             <GroupDetailsPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path={REACT_ENDPOINTS.SETTINGS} element={
+          <ProtectedRoute>
+            <SettingsPage />
           </ProtectedRoute>
         } />
 
