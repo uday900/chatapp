@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useParams, useNavigate } from 'react-router-dom';
 import { fetchGroupDetails } from '../redux/slice/user.slice';
@@ -6,6 +6,8 @@ import { getProfileImage } from '../utils/constants';
 import { API_ENDPOINTS } from '../utils/endpoints';
 import api from '../api/axios';
 import { showError, showSuccess } from '../utils/toast';
+import AddGroupMemberModal from '../components/AddGroupMemberModal';
+import { getMyChatsApi } from '../redux/slice/chat.slice';
 
 export default function GroupDetailsPage() {
   const { chatId } = useParams();
@@ -13,6 +15,7 @@ export default function GroupDetailsPage() {
   const navigate = useNavigate();
   const { groupDetails, loading, error } = useSelector((state) => state.userchat);
   const currentUser = useSelector((state) => state.auth.user);
+  const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
   useEffect(() => {
     if (chatId) {
@@ -40,6 +43,11 @@ export default function GroupDetailsPage() {
           'Unable to remove member. Please try again.'
       );
     }
+  };
+
+  const handleMembersAdded = () => {
+    dispatch(fetchGroupDetails(chatId));
+    dispatch(getMyChatsApi());
   };
 
   if (loading) {
@@ -103,7 +111,19 @@ export default function GroupDetailsPage() {
 
         {/* Members List */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Members</h3>
+          <div className="mb-4 flex items-center justify-between gap-4">
+            <h3 className="text-lg font-semibold text-gray-900">Members</h3>
+            {currentUserIsAdmin ? (
+              <button
+                type="button"
+                onClick={() => setShowAddMemberModal(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-black px-4 py-2 text-sm font-semibold text-white hover:bg-gray-900"
+              >
+                <span aria-hidden="true">+</span>
+                <span>Add member</span>
+              </button>
+            ) : null}
+          </div>
           <div className="space-y-4">
             {groupDetails.allMembers.map((member) => {
               const isCurrentUser = member.user?.id === currentUser?.id;
@@ -153,6 +173,13 @@ export default function GroupDetailsPage() {
           </div>
         </div>
       </div>
+
+      <AddGroupMemberModal
+        open={showAddMemberModal}
+        chatId={chatId}
+        onClose={() => setShowAddMemberModal(false)}
+        onMembersAdded={handleMembersAdded}
+      />
     </div>
   );
 }

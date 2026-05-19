@@ -17,6 +17,50 @@ router.use(authMiddleware);
  *     responses:
  *       200:
  *         description: Chats fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   chatId:
+ *                     type: integer
+ *                   lastMessage:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       message:
+ *                         type: string
+ *                       sender_id:
+ *                         type: integer
+ *                       sender_name:
+ *                         type: string
+ *                       sender_profile_picture:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                       is_deleted:
+ *                         type: boolean
+ *                       deleted_by:
+ *                         type: integer
+ *                       deleted_at:
+ *                         type: string
+ *                         format: date-time
+ *                   name:
+ *                     type: string
+ *                   profile_picture:
+ *                     type: string
+ *                   type:
+ *                     type: string
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
  */
 router.get("/my-chats", chatController.getUserChats);
 
@@ -51,6 +95,48 @@ router.post("/create", chatController.createNewChat);
  *     responses:
  *       200:
  *         description: Messages fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 chat:
+ *                   type: object
+ *                   properties:
+ *                     chatId:
+ *                       type: integer
+ *                     name:
+ *                       type: string
+ *                     type:
+ *                       type: string
+ *                 messages:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       message:
+ *                         type: string
+ *                       sender_id:
+ *                         type: integer
+ *                       sender_name:
+ *                         type: string
+ *                       sender_profile_picture:
+ *                         type: string
+ *                       created_at:
+ *                         type: string
+ *                         format: date-time
+ *                       updated_at:
+ *                         type: string
+ *                         format: date-time
+ *                       is_deleted:
+ *                         type: boolean
+ *                       deleted_by:
+ *                         type: integer
+ *                       deleted_at:
+ *                         type: string
+ *                         format: date-time
  */
 router.get("/:id/messages", chatController.getChatMessages);
 

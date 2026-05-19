@@ -73,38 +73,12 @@ module.exports = (io, socket) => {
                 sender_name: socket.user.full_name,
                 sender_profile_picture: socket.user.profile_picture,
                 created_at: savedMessage.createdAt,
+                updated_at: savedMessage.updatedAt || null,
                 reply_to_message_id: savedMessage.reply_to_message_id
             });
         } catch (error) {
             console.error("Error saving message:", error);
             socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "Failed to send message" });
-        }
-    });
-
-    socket.on(SOCKET_EVENTS.MESSAGE_DELETE, async (data) => {
-        try {
-            const { error } = chatMessageDeleteSchema.validate(data);
-            if (error) {
-                console.error("Validation error for message:delete:", error.details[0].message);
-                return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: error.details[0].message });
-            }
-
-            const message = await ChatMessage.findOne({
-                where: {
-                    id: data.messageId,
-                    chat_id: data.chatId
-                }
-            });
-
-            if (!message) {
-                return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "Message not found" });
-            }
-
-            await message.destroy();
-            io.to(SOCKET_ROOMS.CHAT_PREFIX + data.chatId).emit(SOCKET_EVENTS.MESSAGE_DELETED, { id: data.messageId });
-        } catch (error) {
-            console.error("Error deleting message:", error);
-            socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "Failed to delete message" });
         }
     });
 
@@ -173,6 +147,23 @@ module.exports = (io, socket) => {
                 return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "You can only edit your own message" });
             }
 
+            if (existingMessage.is_deleted) {
+                return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "Deleted messages cannot be edited" });
+            }
+
+            const sentAt = new Date(existingMessage.createdAt);
+            const now = new Date();
+            const isSameDay =
+                sentAt.getFullYear() === now.getFullYear() &&
+                sentAt.getMonth() === now.getMonth() &&
+                sentAt.getDate() === now.getDate();
+
+            if (!isSameDay) {
+                return socket.emit(SOCKET_EVENTS.CHAT_ERROR, {
+                    message: "Messages can only be edited on the same day they were sent"
+                });
+            }
+
             existingMessage.message = message;
             await existingMessage.save();
 
@@ -211,10 +202,22 @@ module.exports = (io, socket) => {
                 return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "You can only delete your own message" });
             }
 
-            await message.destroy();
+            if (message.is_deleted) {
+                return socket.emit(SOCKET_EVENTS.CHAT_ERROR, { message: "Message is already deleted" });
+            }
+
+            await message.update({
+                is_deleted: true,
+                deleted_by: socket.user.id,
+                deletedAt: new Date()
+            });
+
             io.to(SOCKET_ROOMS.CHAT_PREFIX + chatId).emit(SOCKET_EVENTS.MESSAGE_DELETED, {
                 chatId,
-                id: messageId
+                id: messageId,
+                is_deleted: true,
+                deleted_by: socket.user.id,
+                deleted_at: message.deletedAt || new Date()
             });
         } catch (error) {
             console.error("Error deleting message:", error);

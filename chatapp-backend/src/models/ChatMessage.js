@@ -34,10 +34,46 @@ const ChatMessage = sequelize.define("ChatMessage", {
             model: "users",
             key: "id"
         }
+    },
+    is_deleted: {
+        type: DataTypes.BOOLEAN,
+        allowNull: false,
+        defaultValue: false
+    },
+    deleted_by: {
+        type: DataTypes.INTEGER,
+        allowNull: true,
+        references: {
+            model: "users",
+            key: "id"
+        }
+    }
+    ,
+    updatedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
+    },
+    deletedAt: {
+        type: DataTypes.DATE,
+        allowNull: true
     }
 }, {
     tableName: "chat_messages",
-    timestamps: true
+    timestamps: true,
+    // Keep updatedAt nullable and set it to null on create via hook so it's only
+    // populated when the message is later updated.
+    updatedAt: true,
+    createdAt: true,
+    // We'll store deletedAt manually when marking messages deleted.
+    
+    hooks: {
+        beforeCreate: (instance) => {
+            instance.updatedAt = null;
+        },
+        beforeBulkCreate: (instances) => {
+            instances.forEach(i => { i.updatedAt = null; });
+        }
+    }
 });
 
 module.exports = ChatMessage;

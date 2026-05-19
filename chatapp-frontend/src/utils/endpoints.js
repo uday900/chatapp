@@ -19,6 +19,7 @@ export const API_ENDPOINTS = {
     CHAT_CLEAR: (chatId) => `/chats/${chatId}/clear`,
     CHAT_ADD_MEMBERS: (chatId) => `/chats/${chatId}/members`,
     CHAT_AVAILABLE_MEMBERS: (chatId) => `/chats/${chatId}/available-members`,
+    CHAT_CREATE: "/chats/create",
     CONTACTS: "/users/contacts",
     USER_BY_MOBILE: (mobile) => `/users/mobile/${mobile}`,
     GROUP_DETAILS: (chatId) => `/chats/${chatId}/group-details`,
@@ -29,6 +30,10 @@ export const API_ENDPOINTS = {
     CHAT_LEAVE: "chat:leave",
     MESSAGE_SEND: "message:send",
     MESSAGE_RECEIVE: "message:new",
+    MESSAGE_DELETE: "message:delete",
+    MESSAGE_DELETED: "message:deleted",
+    MESSAGE_UPDATE: "message:update",
+    MESSAGE_UPDATED: "message:updated",
     MESSAGES_READ: "messages:read",
     
     HEARTBEAT: "presence:heartbeat",

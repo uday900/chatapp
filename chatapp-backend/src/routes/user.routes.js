@@ -34,9 +34,42 @@ router.get(URL_SEPARATOR, userController.getAllUsers);
  *         schema:
  *           type: string
  *         description: Search contacts by name or mobile number
+ *       - in: query
+ *         name: newChat
+ *         required: false
+ *         schema:
+ *           type: boolean
+ *         description: If true, perform a mobile lookup only and return the matched user if found
  *     responses:
  *       200:
  *         description: Contacts fetched successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 data:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: integer
+ *                       full_name:
+ *                         type: string
+ *                       email:
+ *                         type: string
+ *                       mobile:
+ *                         type: string
+ *                       profile_picture:
+ *                         type: string
+ *                       last_seen:
+ *                         type: string
+ *                         format: date-time
+ *                       isInYourContact:
+ *                         type: boolean
  */
 router.get(USER_CONTACT, userController.getUserContacts);
 

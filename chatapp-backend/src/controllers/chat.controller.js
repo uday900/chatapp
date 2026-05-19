@@ -26,7 +26,7 @@ exports.createNewChat = async (req, res, next) => {
         const result = await chatService.createNewChat(req.body);
         res.status(201).json({
             success: true,
-            data: { chatId: result }
+            data: { chatDetails: result }
         });
 
     } catch (error) {

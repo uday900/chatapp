@@ -107,23 +107,12 @@ export default function LoginPage() {
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="my-5 flex items-center gap-3">
-              <div className="flex-1 h-px bg-gray-200" />
-              <span className="text-sm text-gray-400">
-                Or continue with
-              </span>
-              <div className="flex-1 h-px bg-gray-200" />
+            <div className="my-5 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              Sign in with your email and password to continue securely.
             </div>
 
-            {/* Google */}
-            <button className="w-full h-11 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition font-medium flex items-center justify-center gap-3">
-              <span className="text-lg">G</span>
-              Google
-            </button>
-
             {/* Footer */}
-            <p className="text-center text-sm text-gray-500 mt-6">
+            <p className="text-center text-sm text-gray-500 mt-4">
               Don&apos;t have an account?{" "}
               <button className="text-indigo-600 font-semibold hover:text-indigo-700 cursor-pointer" onClick={() => navigate(REACT_ENDPOINTS.SIGNUP)}>
                 Sign up

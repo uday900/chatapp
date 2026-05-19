@@ -228,6 +228,92 @@ const chatSlice = createSlice({
                 });;
         },
 
+        updateMessage: (state, action) => {
+            const { chatId, id, message, updated_at } = action.payload;
+            const parsedChatId = Number(chatId);
+            const parsedMessageId = Number(id);
+
+            if (state.messages[parsedChatId]) {
+                state.messages[parsedChatId] = state.messages[parsedChatId].map((item) =>
+                    Number(item.id) === parsedMessageId
+                        ? {
+                            ...item,
+                            message,
+                            updated_at,
+                        }
+                        : item
+                );
+            }
+
+            state.chats = state.chats.map((chat) =>
+                Number(chat.chatId) === parsedChatId &&
+                    Number(chat.lastMessage?.id) === parsedMessageId
+                    ? {
+                        ...chat,
+                        lastMessage: {
+                            ...chat.lastMessage,
+                            message,
+                            updated_at,
+                        },
+                    }
+                    : chat
+            );
+        },
+
+        deleteMessage: (state, action) => {
+            const { chatId, id, deleted_by } = action.payload;
+            const parsedMessageId = Number(id);
+            const parsedChatId = chatId ? Number(chatId) : null;
+            const markDeleted = (item) =>
+                Number(item.id) === parsedMessageId
+                    ? {
+                        ...item,
+                        is_deleted: true,
+                        deleted_by,
+                    }
+                    : item;
+
+            if (!parsedChatId) {
+                Object.keys(state.messages).forEach((messageChatId) => {
+                    state.messages[messageChatId] =
+                        state.messages[messageChatId].map(markDeleted);
+                });
+
+                state.chats = state.chats.map((chat) =>
+                    Number(chat.lastMessage?.id) === parsedMessageId
+                        ? {
+                            ...chat,
+                            lastMessage: {
+                                ...chat.lastMessage,
+                                is_deleted: true,
+                                deleted_by,
+                            },
+                        }
+                        : chat
+                );
+                return;
+            }
+
+            if (state.messages[parsedChatId]) {
+                state.messages[parsedChatId] =
+                    state.messages[parsedChatId].map(markDeleted);
+            }
+
+            state.chats = state.chats.map((chat) =>
+                Number(chat.chatId) === parsedChatId &&
+                    Number(chat.lastMessage?.id) === parsedMessageId
+                    ? {
+                        ...chat,
+                        lastMessage: {
+                            ...chat.lastMessage,
+                            is_deleted: true,
+                            deleted_by,
+                        },
+                    }
+                    : chat
+            );
+        },
+
         resetUnreadCount: (state, action) => {
             const chatId = action.payload;
             state.chats = state.chats.map((chat) =>
@@ -250,7 +336,7 @@ const chatSlice = createSlice({
 
         markMessagesRead: (state, action) => {
             console.log("payload for markMessagesRead:", action.payload);
-            const { chatId, lastReadMessageId } = action.payload;
+            const { chatId, userId, lastReadMessageId } = action.payload;
             const parsedChatId = Number(chatId);
             console.log(
                 "payload chatId:",
@@ -276,6 +362,22 @@ const chatSlice = createSlice({
             if (state.selectedChat?.chatId === parsedChatId) {
                 state.selectedChat.lastReadMessageId =
                     Number(lastReadMessageId);
+
+                if (state.selectedChat.type === "GROUP") {
+                    const existingReceipts =
+                        state.selectedChat.readReceipts || [];
+                    const parsedUserId = Number(userId);
+
+                    state.selectedChat.readReceipts = existingReceipts.map((receipt) =>
+                        Number(receipt.userId) === parsedUserId
+                            ? {
+                                ...receipt,
+                                lastReadMessageId:
+                                    Number(lastReadMessageId)
+                            }
+                            : receipt
+                    );
+                }
             }
             console.log("updated selected chat lastread", state.selectedChat);
         }
@@ -373,6 +475,8 @@ export const {
     clearMessagesError,
 
     appendNewMessage,
+    updateMessage,
+    deleteMessage,
     resetUnreadCount,
     markMessagesRead
 } = chatSlice.actions;

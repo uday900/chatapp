@@ -60,4 +60,27 @@ exports.getUserByMobileNumber = async (mobileNumber) => {
         throw recordNotFound("User not found");
     }
     return user;
-}
+};
+
+exports.findUserByMobileNumber = async (mobileNumber) => {
+    return await User.findOne({ where: { mobile_number: mobileNumber } });
+};
+
+exports.isUserContact = async (userId, targetUserId) => {
+    const query = `
+        SELECT 1
+        FROM chat_members cm1
+        JOIN chat_members cm2
+            ON cm1.chat_id = cm2.chat_id
+        WHERE cm1.user_id = :userId
+          AND cm2.user_id = :targetUserId
+        LIMIT 1
+    `;
+
+    const result = await sequelize.query(query, {
+        replacements: { userId, targetUserId },
+        type: sequelize.QueryTypes.SELECT
+    });
+
+    return result.length > 0;
+};

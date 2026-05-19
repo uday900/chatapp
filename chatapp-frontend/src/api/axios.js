@@ -25,7 +25,15 @@ api.interceptors.request.use(
 
 // Response Interceptor
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Notify app that backend responded successfully (in case it was previously marked down)
+    try {
+      window.dispatchEvent(new CustomEvent("server-up"));
+    } catch (e) {
+      // ignore
+    }
+    return response;
+  },
   (error) => {
     if (error.response?.status === 401 && (error.response?.data?.errorCode === "TOKEN_EXPIRED")) {
       showError("Session expired, please login again.");

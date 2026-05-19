@@ -184,8 +184,85 @@ exports.createNewChat = async (data) => {
         });
 
         if (existingChats.length > 0) {
+            const existingChatId = existingChats[0].id;
+
+            const chat = await Chat.findByPk(existingChatId, {
+                include: [
+                    {
+                        model: ChatMember,
+                        as: "members",
+                        where: {
+                            user_id: userId
+                        },
+                        attributes: [],
+                        required: true
+                    },
+                    {
+                        model: ChatMember,
+                        as: "allMembers",
+                        include: [
+                            {
+                                model: User,
+                                as: "user",
+                                attributes: [
+                                    "id",
+                                    "full_name",
+                                    "profile_picture",
+                                    "last_seen"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        model: ChatMessage,
+                        as: "ChatMessages",
+                        separate: true,
+                        limit: 1,
+                        order: [["createdAt", "DESC"]],
+                        include: [
+                            {
+                                model: User,
+                                as: "sender",
+                                attributes: [
+                                    "id",
+                                    "full_name",
+                                    "profile_picture"
+                                ]
+                            }
+                        ]
+                    }
+                ]
+            });
+
+            const currentUserMember = chat.allMembers.find(m => m.user_id === userId);
+            const messageStartDate = currentUserMember?.chat_cleared_at || chat.createdAt;
+
+            const [result] = await sequelize.query(`
+                SELECT COUNT(*) AS unread_count
+                FROM chat_messages
+                WHERE chat_id = :chatId
+                  AND sender_id != :currentUserId
+                  AND "createdAt" > :messageStartDate
+                  AND id > COALESCE((
+                      SELECT last_read_message_id
+                      FROM chat_members
+                      WHERE chat_id = :chatId
+                        AND user_id = :currentUserId
+                  ), 0)
+            `, {
+                replacements: {
+                    chatId: existingChatId,
+                    currentUserId: userId,
+                    messageStartDate
+                }
+            });
+
+            const unreadCount = parseInt(result[0].unread_count);
+
+            const mapped = await mapToChatSummary(chat, userId, unreadCount);
+
             return {
-                chatId: existingChats[0].id,
+                ...mapped,
                 created: false
             };
         }
@@ -221,8 +298,59 @@ exports.createNewChat = async (data) => {
 
     await ChatMember.bulkCreate(memberEntries);
 
+    // Fetch newly created chat with members + latest message to build full summary
+    const newChat = await Chat.findByPk(chat.id, {
+        include: [
+            {
+                model: ChatMember,
+                as: "members",
+                where: {
+                    user_id: userId
+                },
+                attributes: [],
+                required: true
+            },
+            {
+                model: ChatMember,
+                as: "allMembers",
+                include: [
+                    {
+                        model: User,
+                        as: "user",
+                        attributes: [
+                            "id",
+                            "full_name",
+                            "profile_picture",
+                            "last_seen"
+                        ]
+                    }
+                ]
+            },
+            {
+                model: ChatMessage,
+                as: "ChatMessages",
+                separate: true,
+                limit: 1,
+                order: [["createdAt", "DESC"]],
+                include: [
+                    {
+                        model: User,
+                        as: "sender",
+                        attributes: [
+                            "id",
+                            "full_name",
+                            "profile_picture"
+                        ]
+                    }
+                ]
+            }
+        ]
+    });
+
+    const mapped = await mapToChatSummary(newChat, userId, 0);
+
     return {
-        chatId: chat.id,
+        ...mapped,
         created: true
     };
 };

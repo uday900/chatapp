@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
+import { IoArrowBack, IoChatbubbleOutline, IoChevronDown, IoChevronUp } from "react-icons/io5";
 
 import {
   getMyChatsApi,
@@ -8,6 +9,8 @@ import {
   setSelectedChat,
   clearChatMessagesApi,
   appendNewMessage,
+  updateMessage,
+  deleteMessage,
   markChatMessagesRead,
   resetUnreadCount,
   markMessagesRead
@@ -23,6 +26,11 @@ import {
 import { getProfileImage } from "../utils/constants";
 import { showError } from "../utils/toast";
 import AddGroupMemberModal from "../components/AddGroupMemberModal";
+import CreateGroupModal from "../components/CreateGroupModal";
+
+const SIDEBAR_MIN_WIDTH = 300;
+const SIDEBAR_MAX_WIDTH = 520;
+const SIDEBAR_DEFAULT_WIDTH = 380;
 
 export default function ChatPage() {
   const dispatch = useDispatch();
@@ -41,13 +49,23 @@ export default function ChatPage() {
   const [isOnline, setIsOnline] = useState(false);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
+  const [showCreateGroupModal, setShowCreateGroupModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearChatId, setClearChatId] = useState(null);
   const [contactSearch, setContactSearch] = useState("");
   const [contacts, setContacts] = useState([]);
   const [contactsLoading, setContactsLoading] = useState(false);
+  const [showNewChatPanel, setShowNewChatPanel] = useState(false);
+  const [quickNewChatMode, setQuickNewChatMode] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(SIDEBAR_DEFAULT_WIDTH);
+  const contactSearchInputRef = useRef(null);
+  const messageMenuRef = useRef(null);
   const typingTimeoutRef = useRef(null);
-  const [typingUser, setTypingUser] = useState(null);
+  const [typingUsers, setTypingUsers] = useState({});
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [editMessageText, setEditMessageText] = useState("");
+  const [openMessageMenuId, setOpenMessageMenuId] = useState(null);
+  const [messageInfoMessage, setMessageInfoMessage] = useState(null);
   const { messages } = useSelector((state) => state.chat);
 
   useEffect(() => {
@@ -59,6 +77,28 @@ export default function ChatPage() {
       dispatch(getChatMessagesApi(selectedChat.chatId));
     }
   }, [dispatch, selectedChat?.chatId]);
+
+  useEffect(() => {
+    setTypingUsers({});
+  }, [selectedChat?.chatId]);
+
+  useEffect(() => {
+    if (!openMessageMenuId) return;
+
+    const handleClickOutsideMessageMenu = (event) => {
+      if (messageMenuRef.current?.contains(event.target)) {
+        return;
+      }
+
+      setOpenMessageMenuId(null);
+    };
+
+    document.addEventListener("mousedown", handleClickOutsideMessageMenu);
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutsideMessageMenu);
+    };
+  }, [openMessageMenuId]);
 
   useEffect(() => {
     if (!selectedChat?.chatId) return;
@@ -99,16 +139,30 @@ export default function ChatPage() {
 
   useEffect(() => {
     const loadContacts = async () => {
+      const query = contactSearch.trim();
+
+      if (!query) {
+        if (!showNewChatPanel) {
+          setContacts([]);
+          setContactsLoading(false);
+          return;
+        }
+      }
+
       setContactsLoading(true);
       try {
+        const params = query ? { search: query } : {};
+        if (quickNewChatMode) {
+          params.newChat = true;
+        }
         const response = await api.get(API_ENDPOINTS.CONTACTS, {
-          params: { search: contactSearch },
+          params,
         });
         setContacts(response.data?.data || []);
       } catch (error) {
         showError(
           error?.response?.data?.message ||
-            "Unable to load contacts. Please try again."
+          "Unable to load contacts. Please try again."
         );
       } finally {
         setContactsLoading(false);
@@ -116,7 +170,15 @@ export default function ChatPage() {
     };
 
     loadContacts();
-  }, [contactSearch]);
+  }, [contactSearch, showNewChatPanel, quickNewChatMode]);
+
+  const isContactSearchNonContactResult =
+    contacts.length > 0 &&
+    contacts.every((item) => item.isInYourContact === false);
+
+  const contactsLabel = isContactSearchNonContactResult
+    ? "User is not in your contacts"
+    : "Contacts";
 
   useEffect(() => {
     const socket = getSocket();
@@ -150,10 +212,27 @@ export default function ChatPage() {
       dispatch(appendNewMessage(data));
     };
 
-    console.log("Setting up socket listener [message:new] for new messages");
+    const handleMessageUpdated = (data) => {
+      dispatch(updateMessage(data));
+    };
+
+    const handleMessageDeleted = (data) => {
+      dispatch(deleteMessage(data));
+      dispatch(getMyChatsApi());
+    };
+
+    // console.log("Setting up socket listener [message:new] for new messages");
     socket.on(
       API_ENDPOINTS.MESSAGE_RECEIVE,
       handleNewMessage
+    );
+    socket.on(
+      API_ENDPOINTS.MESSAGE_UPDATED,
+      handleMessageUpdated
+    );
+    socket.on(
+      API_ENDPOINTS.MESSAGE_DELETED,
+      handleMessageDeleted
     );
     socket.on(API_ENDPOINTS.CHAT_ERROR, (error) => {
       console.error("Chat error:", error);
@@ -164,6 +243,14 @@ export default function ChatPage() {
         API_ENDPOINTS.MESSAGE_RECEIVE,
         handleNewMessage
       );
+      socket.off(
+        API_ENDPOINTS.MESSAGE_UPDATED,
+        handleMessageUpdated
+      );
+      socket.off(
+        API_ENDPOINTS.MESSAGE_DELETED,
+        handleMessageDeleted
+      );
     };
   }, [dispatch]);
 
@@ -172,14 +259,136 @@ export default function ChatPage() {
     return messages[selectedChat.chatId] || [];
   }, [messages, selectedChat]);
 
+  const selectedChatMemberCount = useMemo(() => {
+    if (selectedChat?.type !== "GROUP") return null;
+
+    return (
+      selectedChat.memberCount ??
+      selectedChat.membersCount ??
+      selectedChat.allMembers?.length ??
+      selectedChat.members?.length ??
+      null
+    );
+  }, [selectedChat]);
+
+  const groupChatLabel =
+    selectedChatMemberCount != null
+      ? `Group chat - ${selectedChatMemberCount} ${selectedChatMemberCount === 1 ? "member" : "members"}`
+      : "Group chat";
+
+  const typingUserNames = useMemo(() => {
+    return Object.values(typingUsers).filter(Boolean).slice(0, 2);
+  }, [typingUsers]);
+
+  const typingLabel = useMemo(() => {
+    if (typingUserNames.length === 0) return "";
+    if (typingUserNames.length === 1) {
+      return `${typingUserNames[0]} is typing...`;
+    }
+
+    return `${typingUserNames.join(", ")} are typing...`;
+  }, [typingUserNames]);
+
+  const getGroupMessageReadInfo = (message) => {
+    if (selectedChat?.type !== "GROUP" || !message?.id) {
+      return {
+        readers: [],
+        pendingReaders: [],
+        allRead: false
+      };
+    }
+
+    const memberReceipts = selectedChat.readReceipts || [];
+    const otherMembers = memberReceipts.filter(
+      (receipt) => Number(receipt.userId) !== Number(user?.id)
+    );
+    const readers = otherMembers.filter(
+      (receipt) =>
+        Number(receipt.lastReadMessageId || 0) >= Number(message.id)
+    );
+    const pendingReaders = otherMembers.filter(
+      (receipt) =>
+        Number(receipt.lastReadMessageId || 0) < Number(message.id)
+    );
+
+    return {
+      readers,
+      pendingReaders,
+      allRead:
+        otherMembers.length > 0 &&
+        readers.length === otherMembers.length
+    };
+  };
+
+  const openMessageInfo = (message) => {
+    setOpenMessageMenuId(null);
+    setMessageInfoMessage(message);
+  };
+
+  const clampSidebarWidth = (width) => {
+    return Math.min(
+      SIDEBAR_MAX_WIDTH,
+      Math.max(SIDEBAR_MIN_WIDTH, width)
+    );
+  };
+
+  const startSidebarResize = (event) => {
+    event.preventDefault();
+
+    const handleMouseMove = (moveEvent) => {
+      setSidebarWidth(
+        clampSidebarWidth(moveEvent.clientX)
+      );
+    };
+
+    const handleMouseUp = () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+  };
+
   const handleSelectChat = (chat) => {
     dispatch(resetUnreadCount(chat.chatId));
     const updatedChat = {
       ...chat,
       unreadCount: 0 // reset unread count when chat is selected
-    }
+    };
     dispatch(setSelectedChat(updatedChat));
     // dispatch(getChatMessagesApi(chat.chatId));
+  };
+
+  const handleSelectContact = async (contact) => {
+    if (!contact) return;
+
+    const existingChat = chats.find(
+      (chat) => chat.type === "ONE_TO_ONE" && chat.other_user_id === contact.id
+    );
+
+    if (existingChat) {
+      handleSelectChat(existingChat);
+      return;
+    }
+
+    dispatch(
+      setSelectedChat({
+        type: "ONE_TO_ONE",
+        chatId: null,
+        other_user_id: contact.id,
+        name: contact.full_name || contact.name,
+        email: contact.email || contact.mobile || contact.mobile_number,
+        lastMessage: null,
+        isOnline: false,
+        preview: true,
+        lastReadMessageId: null
+      })
+    );
   };
 
   const toggleHeaderMenu = (event) => {
@@ -214,44 +423,144 @@ export default function ChatPage() {
     closeClearChatModal();
   };
 
-  const handleSend = () => {
-    const text = input.trim();
+  const canEditMessage = (message) => {
+    if (!message?.created_at) return false;
 
-    if (!text || !selectedChat?.chatId) return;
+    const sentAt = new Date(message.created_at);
+    const now = new Date();
+
+    return (
+      sentAt.getFullYear() === now.getFullYear() &&
+      sentAt.getMonth() === now.getMonth() &&
+      sentAt.getDate() === now.getDate()
+    );
+  };
+
+  const startEditMessage = (message) => {
+    if (!canEditMessage(message)) {
+      showError("Messages can only be edited on the same day they were sent.");
+      return;
+    }
+
+    setOpenMessageMenuId(null);
+    setEditingMessageId(message.id);
+    setEditMessageText(message.message || "");
+  };
+
+  const cancelEditMessage = () => {
+    setEditingMessageId(null);
+    setEditMessageText("");
+  };
+
+  const handleUpdateMessage = (message) => {
+    const text = editMessageText.trim();
+    if (!selectedChat?.chatId || !message?.id || !text) return;
+    if (!canEditMessage(message)) {
+      showError("Messages can only be edited on the same day they were sent.");
+      cancelEditMessage();
+      return;
+    }
+
     const socket = getSocket();
+    if (!socket) return;
+
+    socket.emit(API_ENDPOINTS.MESSAGE_UPDATE, {
+      chatId: selectedChat.chatId,
+      messageId: message.id,
+      message: text,
+    });
+    cancelEditMessage();
+  };
+
+  const handleDeleteMessage = (message) => {
+    if (!selectedChat?.chatId || !message?.id) return;
+    if (!window.confirm("Delete this message?")) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    setOpenMessageMenuId(null);
+    socket.emit(API_ENDPOINTS.MESSAGE_DELETE, {
+      chatId: selectedChat.chatId,
+      messageId: message.id,
+    });
+  };
+
+  const handleSend = async () => {
+    const text = input.trim();
+    if (!text || !selectedChat) return;
+
+    const socket = getSocket();
+    let chatId = selectedChat.chatId;
+
+    if (!chatId && selectedChat.type === "ONE_TO_ONE") {
+      try {
+        const response = await api.post(API_ENDPOINTS.CHAT_CREATE, {
+          type: "ONE_TO_ONE",
+          memberIds: [selectedChat.other_user_id],
+        });
+
+        const newChat = response.data?.data?.chatDetails || response.data;
+        if (!newChat?.chatId) {
+          showError("Unable to create chat. Please try again.");
+          return;
+        }
+
+        chatId = newChat.chatId;
+        dispatch(getMyChatsApi());
+        dispatch(setSelectedChat(newChat));
+
+        if (socket) {
+          socket.emit(API_ENDPOINTS.CHAT_JOIN, { chatId });
+        }
+      } catch (error) {
+        showError(
+          error?.response?.data?.message ||
+          "Unable to create chat. Please try again."
+        );
+        return;
+      }
+    }
+
+    if (!chatId) return;
 
     const payload = {
-      chatId: selectedChat.chatId,
-      message: text
+      chatId,
+      message: text,
     };
 
     console.log("Emitting [message:send] with payload:", payload);
     socket.emit(API_ENDPOINTS.MESSAGE_SEND, payload);
     setInput("");
+    setContactSearch("");
   };
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
-    } else {
-      // Send typing indicator (optional)
-      const socket = getSocket();
-      console.log("Sending typing event")
-      socket.emit(API_ENDPOINTS.TYPING_START, {
-        chatId: selectedChat?.chatId
-      });
-
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-
-      typingTimeoutRef.current = setTimeout(() => {
-        socket.emit(API_ENDPOINTS.TYPING_STOP, {
-          chatId: selectedChat?.chatId
-        });
-      }, 2000);
+      return;
     }
+
+    if (!selectedChat?.chatId) return;
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    // console.log("Sending typing event");
+    socket.emit(API_ENDPOINTS.TYPING_START, {
+      chatId: selectedChat.chatId,
+    });
+
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    typingTimeoutRef.current = setTimeout(() => {
+      socket.emit(API_ENDPOINTS.TYPING_STOP, {
+        chatId: selectedChat.chatId,
+      });
+    }, 2000);
   };
 
   useEffect(() => {
@@ -267,7 +576,7 @@ export default function ChatPage() {
     }, 20000); // every 20 seconds
 
     return () => {
-      console.log("Clearing heartbeat interval");
+      // console.log("Clearing heartbeat interval");
       clearInterval(heartbeatInterval);
     };
   }, [user?.id]);
@@ -307,7 +616,7 @@ export default function ChatPage() {
       }
     };
 
-    console.log("Setting up socket listeners for presence events [", API_ENDPOINTS.PRESENCE_ONLINE, API_ENDPOINTS.PRESENCE_OFFLINE, "]");
+    // console.log("Setting up socket listeners for presence events [", API_ENDPOINTS.PRESENCE_ONLINE, API_ENDPOINTS.PRESENCE_OFFLINE, "]");
     socket.on(
       API_ENDPOINTS.PRESENCE_ONLINE,
       handleUserOnline
@@ -334,17 +643,24 @@ export default function ChatPage() {
       if (
         data.chatId === selectedChat?.chatId
       ) {
-        setTypingUser(
-          data.username
-        );
+        setTypingUsers((currentUsers) => ({
+          ...currentUsers,
+          [data.userId || data.username]: data.username
+        }));
       }
     };
 
-    const handleTypingStopped = () => {
-      setTypingUser(null);
+    const handleTypingStopped = (data) => {
+      if (data.chatId !== selectedChat?.chatId) return;
+
+      setTypingUsers((currentUsers) => {
+        const nextUsers = { ...currentUsers };
+        delete nextUsers[data.userId || data.username];
+        return nextUsers;
+      });
     };
 
-    console.log("listening events for [", API_ENDPOINTS.TYPING_STARTED, API_ENDPOINTS.TYPING_STOPPED, "]")
+    // console.log("listening events for [", API_ENDPOINTS.TYPING_STARTED, API_ENDPOINTS.TYPING_STOPPED, "]")
     socket.on(
       API_ENDPOINTS.TYPING_STARTED,
       handleTypingStarted
@@ -376,158 +692,334 @@ export default function ChatPage() {
     };
   }, [selectedChat?.chatId, dispatch]);
 
+  const messageInfoReadInfo = messageInfoMessage
+    ? getGroupMessageReadInfo(messageInfoMessage)
+    : {
+      readers: [],
+      pendingReaders: [],
+      allRead: false
+    };
+
   return (
-    <div className="h-screen flex bg-[#f8fafc]">
+    <div className="h-screen flex bg-[#f5f7fb] overflow-hidden">
       {/* Sidebar */}
-      <aside className="w-[360px] bg-white border-r border-gray-200 flex flex-col">
-        {/* Header */}
-        <div className="p-5 border-b border-gray-100">
-            <button
-              type="button"
-              onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
-              className="w-full text-left"
-            >
-              <div className="flex items-center gap-3 mb-4 cursor-pointer">
+      <aside
+        className="relative shrink-0 bg-white border-r border-gray-200 flex flex-col"
+        style={{
+          width: sidebarWidth,
+          minWidth: SIDEBAR_MIN_WIDTH,
+          maxWidth: SIDEBAR_MAX_WIDTH,
+        }}
+      >
+        <div
+          role="separator"
+          aria-label="Resize chat list"
+          aria-orientation="vertical"
+          aria-valuemin={SIDEBAR_MIN_WIDTH}
+          aria-valuemax={SIDEBAR_MAX_WIDTH}
+          aria-valuenow={sidebarWidth}
+          onMouseDown={startSidebarResize}
+          className="group absolute right-[-4px] top-0 z-40 h-full w-2 cursor-col-resize"
+        >
+          <div className="mx-auto h-full w-px bg-transparent transition group-hover:bg-indigo-400" />
+        </div>
+        <div className="bg-white">
+          <div className="flex items-center justify-between gap-3 px-5 py-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Messages
+              </p>
+            </div>
+
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
+                className="rounded-full border border-gray-200 bg-white shadow-sm transition hover:border-gray-300 cursor-pointer"
+                aria-label="Profile settings"
+              >
                 <img
                   src={getProfileImage(user?.full_name, user?.id)}
-                  alt="profile"
-                  className="w-11 h-11 rounded-full object-cover"
+                  alt="Profile"
+                  className="h-10 w-10 rounded-full object-cover"
                 />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 transition hover:border-gray-300 hover:text-gray-900"
+                aria-label="Settings"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="h-5 w-5"
+                >
+                  <circle cx="12" cy="5" r="1.8" />
+                  <circle cx="12" cy="12" r="1.8" />
+                  <circle cx="12" cy="19" r="1.8" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-                <div>
-                  <h2 className="font-semibold text-gray-900">
-                    {user?.full_name || "User"}
-                  </h2>
-                  <p className="text-sm text-gray-500">{user?.email}</p>
-                </div>
+          {showNewChatPanel && (
+            <div className="bg-white px-5 py-4">
+              <div className="flex items-center justify-start gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewChatPanel(false);
+                    setQuickNewChatMode(false);
+                  }}
+                  aria-label="Back"
+                >
+                  <span className="text-lg cursor-pointer hover:scale-110"><IoArrowBack /></span>
+                </button>
+
+                <h3 className="text-base font-semibold text-gray-900">New chat</h3>
+
+                {/* <div className="h-10 w-10" /> */}
               </div>
-            </button>
-
-            <div className="mb-4">
+            </div>
+          )}
+          <div className="px-5 pb-4">
+            <div className="rounded-full border border-gray-200 bg-[#f5f7fb] shadow-sm focus-within:border-gray-300 focus-within:ring-2 focus-within:ring-black/10 flex items-center px-2">
               <input
-                type="text"
+                ref={contactSearchInputRef}
+                type={quickNewChatMode ? "tel" : "text"}
+                inputMode={quickNewChatMode ? "numeric" : "text"}
                 value={contactSearch}
-                onChange={(e) => setContactSearch(e.target.value)}
-                placeholder="Search contacts"
-                className="w-full rounded-full border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-black/10"
+                onChange={(e) => {
+                  const value = e.target.value;
+                  if (quickNewChatMode) {
+                    setContactSearch(value.replace(/\D/g, ""));
+                  } else {
+                    setContactSearch(value);
+                  }
+                }}
+                placeholder={quickNewChatMode ? "Enter contact number" : "Search contacts"}
+                className="flex-1 rounded-full bg-[#f5f7fb] px-4 py-3 text-sm text-gray-900 outline-none border-none"
               />
-            </div>
 
-            <div className="mb-3">
-              <div className="text-sm font-semibold text-gray-900">Contacts</div>
-            </div>
-
-            <div className="space-y-2">
-              {contactsLoading ? (
-                <div className="text-sm text-gray-500">Loading contacts...</div>
-              ) : contacts.length === 0 ? (
-                <div className="text-sm text-gray-500">No contacts found.</div>
-              ) : (
-                contacts.map((contact) => (
-                  <div
-                    key={contact.id}
-                    className="rounded-3xl border border-gray-200 bg-gray-50 px-4 py-3"
+              {contactSearch && (
+                <button
+                  type="button"
+                  onClick={() => setContactSearch("")}
+                  className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 transition"
+                  aria-label="Clear search"
+                >
+                  <svg
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="h-5 w-5 cursor-pointer hover:font-bold"
                   >
-                    <p className="font-medium text-gray-900">{contact.full_name}</p>
-                    <p className="text-sm text-gray-500">{contact.mobile || contact.mobile_number}</p>
-                  </div>
-                ))
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12 19 6.41z" />
+                  </svg>
+                </button>
               )}
             </div>
           </div>
-        {/* Chat List */}
-        <div className="flex-1 overflow-y-auto">
-          {chatsLoading ? (
-            <div className="p-5 text-sm text-gray-500">
-              Loading chats...
-            </div>
-          ) : chats?.length === 0 ? (
-            <div className="p-5 text-sm text-gray-500">
-              No chats found
-            </div>
-          ) : (
-            chats.map((chat) => {
-              const isActive = selectedChat?.chatId === chat.chatId;
+        </div>
 
-              return (
-                <button
-                  key={chat.chatId}
-                  onClick={() => handleSelectChat(chat)}
-                  className={`w-full px-4 py-4 flex items-center gap-3 text-left transition ${isActive ? "bg-indigo-50" : "hover:bg-gray-50"
-                    }`}
-                >
-                  <img
-                    src={getProfileImage(chat.name, chat?.other_user_id)}
-                    alt={chat.name}
-                    className="w-11 h-11 rounded-full object-cover"
-                  />
+        <div className="flex-1 min-h-0 relative">
+          <div className="h-full overflow-y-auto px-5 pb-24 pt-3 space-y-2">
+            {showNewChatPanel ? (
+              <div className="space-y-4">
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="min-w-0 pr-2">
-                        <p className="font-medium text-gray-900 truncate">
-                          {chat.name}
+
+                <div className="">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowCreateGroupModal(true);
+                      setQuickNewChatMode(false);
+                      setShowNewChatPanel(false);
+                    }}
+                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
+                        <svg viewBox="0 0 24 24" fill="none" className="h-5 w-5">
+                          <path d="M12 5v14M5 12h14" stroke="#4f46e5" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">New Group</p>
+                        <p className="text-sm text-gray-500">Create a group with multiple contacts</p>
+                      </div>
+                    </div>
+                  </button>
+                </div>
+                <div className="">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowNewChatPanel(true);
+                      setQuickNewChatMode(true);
+                      setContactSearch("");
+                      setTimeout(() => contactSearchInputRef.current?.focus(), 100);
+                    }}
+                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-200 text-green-600">
+                        <IoChatbubbleOutline />
+                      </div>
+
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          Quick New Chat
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          Start direct chat instantly
                         </p>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-500">
-                          {formatChatTimestamp(
-                            chat.lastMessage?.created_at
-                          )}
-                        </span>
-                      </div>
                     </div>
+                  </button>
+                </div>
 
-                    {/* <p className="text-sm text-gray-500 truncate mt-1">
-                      {chat.lastMessage?.message || "No messages yet"}
-                    </p> */}
-                    <div className="flex items-center justify-between mt-1">
-                      <p className="text-sm text-gray-500 truncate">
-                        {chat.lastMessage?.message || "No messages yet"} {chat?.lastMessage?.sender_id === user?.id && (
-                          <span
-                            className={`ml-1 text-[11px] font-semibold ${Number(chat?.lastReadMessageId || 0) >=
-                              Number(chat?.lastMessage?.id || 0)
-                              ? "text-sky-400"
-                              : "text-gray-400"
-                              }`}
-                          >
-                            {Number(chat?.lastReadMessageId || 0) >=
-                              Number(chat?.lastMessage?.id || 0)
-                              ? "✓✓"
-                              : "✓"}
-                          </span>
-                        )}
-                      </p>
-
-                      {chat?.unreadCount > 0 && (
-                        <span
-                          className="
-        min-w-[22px]
-        h-[22px]
-        px-2
-        flex
-        items-center
-        justify-center
-        rounded-full
-        bg-green-500
-        text-white
-        text-xs
-        font-semibold
-        ml-2
-        shadow-sm
-      "
-                        >
-                          {chat.unreadCount}
-                        </span>
-                      )}
-                    </div>
+                <div className="space-y-3 px-1">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{contactsLabel}</p>
                   </div>
+                  {contactsLoading ? (
+                    <div className="text-sm text-gray-500">Loading contacts...</div>
+                  ) : contacts.length === 0 ? (
+                    <div className="text-sm text-gray-500">No contacts found.</div>
+                  ) : (
+                    contacts.map((contact, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => {
+                          handleSelectContact(contact);
+                          setShowNewChatPanel(false);
+                          setQuickNewChatMode(false);
+                        }}
+                        className="w-full rounded-3xl border border-gray-200 bg-white px-4 py-4 text-left transition hover:border-black/10 hover:shadow-sm cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={getProfileImage(contact.full_name, contact.id)}
+                            alt={contact.full_name}
+                            className="h-11 w-11 rounded-full object-cover"
+                          />
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 truncate">{contact.full_name}</p>
+                            <p className="text-sm text-gray-500 truncate">{contact.email || contact.mobile || contact.mobile_number}</p>
+                          </div>
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+              </div>
+            ) : contactSearch ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">{contactsLabel}</p>
+                </div>
+                {contactsLoading ? (
+                  <div className="text-sm text-gray-500">Loading contacts...</div>
+                ) : contacts.length === 0 ? (
+                  <div className="text-sm text-gray-500">No contacts found.</div>
+                ) : (
+                  contacts.map((contact, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => handleSelectContact(contact)}
+                      className="w-full rounded-3xl border border-gray-200 bg-white px-4 py-3 text-left transition hover:border-black/10 hover:shadow-sm cursor-pointer"
+                    >
+                      <div>
+                        <p className="font-medium text-gray-900">{contact.full_name}</p>
+                        <p className="text-sm text-gray-500">{contact.mobile || contact.mobile_number}</p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : chatsLoading ? (
+              <div className="text-sm text-gray-500">Loading chats...</div>
+            ) : chats?.length === 0 ? (
+              <div className="text-sm text-gray-500">No chats found</div>
+            ) : (
+              <div className="space-y-2">
+                {chats.map((chat) => {
+                  const isActive = selectedChat?.chatId === chat.chatId;
+
+                  return (
+                    <button
+                      key={chat.chatId}
+                      onClick={() => handleSelectChat(chat)}
+                      className={`w-full rounded-3xl px-4 py-4 text-left transition ${isActive ? "bg-indigo-50 shadow-sm" : "hover:bg-gray-50"} cursor-pointer`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={getProfileImage(chat.name, chat?.other_user_id)}
+                          alt={chat.name}
+                          className="w-12 h-12 rounded-full object-cover"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="text-sm font-semibold text-gray-900 truncate">
+                              {chat.name}
+                            </p>
+                            <span className="text-xs text-gray-500">
+                              {formatChatTimestamp(chat.lastMessage?.created_at)}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center justify-between gap-3 text-sm text-gray-500">
+                            <p className="min-w-0 truncate">
+                              {chat.lastMessage?.is_deleted
+                                ? Number(chat.lastMessage?.deleted_by) === Number(user?.id)
+                                  ? "You deleted this message"
+                                  : "This message has been deleted"
+                                : chat.lastMessage?.message || "No messages yet"}
+                            </p>
+                            {chat?.unreadCount > 0 ? (
+                              <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-green-500 px-2 text-xs font-semibold text-white">
+                                {chat.unreadCount}
+                              </span>
+                            ) : chat?.lastMessage?.sender_id === user?.id && !chat?.lastMessage?.is_deleted ? (
+                              <span className={`text-xs ${Number(chat?.lastReadMessageId) >= Number(chat?.lastMessage?.id) ? "text-sky-500" : "text-slate-400"}`}>
+                                {Number(chat?.lastReadMessageId) >= Number(chat?.lastMessage?.id) ? "✓✓" : "✓"}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+          {/* Floating New Chat Button */}
+          {!showNewChatPanel && (
+            <div className="absolute bottom-6 right-6 z-30">
+              <div className="relative group">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowNewChatPanel(true);
+                    setContactSearch("");
+                    // focus the search input in the new panel
+                    setTimeout(() => contactSearchInputRef.current?.focus(), 100);
+                  }}
+                  className="inline-flex items-center justify-center  transition hover:scale-105 cursor-pointer"
+                  aria-label="New chat"
+                  title="Start New Chat.."
+                >
+                  <img src="/assets/newchat-icon.png" alt="New chat" className="h-10 w-10 object-contain" />
                 </button>
-              );
-            })
+              </div>
+            </div>
           )}
         </div>
+
+
       </aside>
 
       {/* Chat Area */}
@@ -561,15 +1053,15 @@ export default function ChatPage() {
                     </h3>
 
                     <p className="text-xs text-gray-500">
-                      {typingUser
-                        ? "typing..."
+                      {typingLabel
+                        ? typingLabel
                         : (isOnline || selectedChat?.isOnline)
                           ? "Online"
                           : selectedChat?.last_seen
                             ? `Last seen ${formatLastSeen(
                               selectedChat.last_seen
                             )}`
-                            : "Group chat"}
+                            : selectedChat?.type === "GROUP" ? groupChatLabel : ""}
                     </p>
                   </div>
                 </div>
@@ -607,7 +1099,26 @@ export default function ChatPage() {
                   open={showAddMemberModal}
                   chatId={selectedChat?.chatId}
                   onClose={closeAddMemberModal}
-                  onMembersAdded={() => dispatch(getMyChatsApi())}
+                  onMembersAdded={() => {
+                    dispatch(getMyChatsApi());
+                    if (selectedChat?.chatId) {
+                      dispatch(getChatMessagesApi(selectedChat.chatId));
+                    }
+                  }}
+                />
+              )}
+
+              {showCreateGroupModal && (
+                <CreateGroupModal
+                  open={showCreateGroupModal}
+                  onClose={() => {
+                    setShowCreateGroupModal(false);
+                    setShowNewChatPanel(true);
+                  }}
+                  onGroupCreated={() => {
+                    setShowCreateGroupModal(false);
+                    setShowNewChatPanel(false);
+                  }}
                 />
               )}
 
@@ -653,9 +1164,24 @@ export default function ChatPage() {
                   activeMessages.map((msg, index) => {
                     const isOwnMessage =
                       msg.sender_id === user?.id;
+                    const isDeletedMessage =
+                      Boolean(msg.is_deleted);
+                    const deletedByCurrentUser =
+                      Number(msg.deleted_by) === Number(user?.id);
+                    const messageText =
+                      isDeletedMessage
+                        ? deletedByCurrentUser
+                          ? "You deleted this message"
+                          : "This message has been deleted"
+                        : msg.message;
 
                     const isGroupChat =
                       selectedChat?.type === "GROUP";
+                    const groupReadInfo =
+                      isOwnMessage && isGroupChat
+                        ? getGroupMessageReadInfo(msg)
+                        : null;
+                    const isEditableToday = canEditMessage(msg);
                     const previousMessage =
                       index > 0
                         ? activeMessages[index - 1]
@@ -673,9 +1199,9 @@ export default function ChatPage() {
 
                     const showDateSeparator =
                       currentDateLabel !== previousDateLabel;
-                    return <>
+                    return <React.Fragment key={msg.id}>
                       {showDateSeparator && (
-                        <div className="flex justify-center my-4">
+                        <div className="flex justify-center my-4" key={index}>
                           <span
                             className="
           px-4
@@ -716,11 +1242,64 @@ export default function ChatPage() {
                         )}
 
                         <div
-                          className={`max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${isOwnMessage
+                          className={`group/message relative max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${isOwnMessage ? "pr-9" : ""} ${isOwnMessage
                             ? "bg-black text-white rounded-br-sm"
                             : "bg-white border text-gray-900 rounded-bl-sm"
                             }`}
                         >
+                          {isOwnMessage && !isDeletedMessage && editingMessageId !== msg.id ? (
+                            <div ref={openMessageMenuId === msg.id ? messageMenuRef : null}>
+                              <button
+                                type="button"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setOpenMessageMenuId((currentId) =>
+                                    currentId === msg.id ? null : msg.id
+                                  );
+                                }}
+                                className={`absolute right-2 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-white transition ${openMessageMenuId === msg.id
+                                  ? "bg-white/20 opacity-100"
+                                  : "opacity-0 hover:bg-white/10 group-hover/message:opacity-100"
+                                }`}
+                                aria-label="Message actions"
+                              >
+                                {openMessageMenuId === msg.id ? (
+                                  <IoChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <IoChevronDown className="h-4 w-4" />
+                                )}
+                              </button>
+                              {openMessageMenuId === msg.id ? (
+                                <div className="absolute bottom-full right-0 z-20 flex items-center gap-1 rounded-full border border-gray-200 bg-white p-1 shadow-lg">
+                                  {isGroupChat ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => openMessageInfo(msg)}
+                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                      Info
+                                    </button>
+                                  ) : null}
+                                  {isEditableToday ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => startEditMessage(msg)}
+                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100"
+                                    >
+                                      Edit
+                                    </button>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteMessage(msg)}
+                                    className="rounded-full px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              ) : null}
+                            </div>
+                          ) : null}
                           {/* Show sender name only for group incoming messages */}
                           {!isOwnMessage && isGroupChat && (
                             <p className="text-xs font-semibold text-green-600 mb-1">
@@ -728,20 +1307,68 @@ export default function ChatPage() {
                             </p>
                           )}
 
+                          {editingMessageId === msg.id && !isDeletedMessage ? (
+                            <div className="space-y-2">
+                              <textarea
+                                value={editMessageText}
+                                onChange={(event) => setEditMessageText(event.target.value)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Escape") {
+                                    event.preventDefault();
+                                    cancelEditMessage();
+                                  }
+
+                                  if (event.key === "Enter" && !event.shiftKey) {
+                                    event.preventDefault();
+                                    handleUpdateMessage(msg);
+                                  }
+                                }}
+                                className="min-h-[72px] w-full resize-none rounded-xl border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:ring-2 focus:ring-white/40"
+                                autoFocus
+                              />
+                              <div className="flex justify-end gap-2">
+                                <button
+                                  type="button"
+                                  onClick={cancelEditMessage}
+                                  className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-white hover:bg-white/20"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUpdateMessage(msg)}
+                                  disabled={!editMessageText.trim()}
+                                  className={`rounded-full px-3 py-1 text-xs font-semibold ${editMessageText.trim()
+                                    ? "bg-white text-black hover:bg-gray-100"
+                                    : "bg-gray-500 text-gray-300"
+                                    }`}
+                                >
+                                  Save
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
                           <p className="text-sm whitespace-pre-wrap break-words">
-                            {msg.message} {isOwnMessage && (
+                            <span className={isDeletedMessage ? "italic opacity-80" : ""}>
+                              {messageText}
+                            </span> {!isDeletedMessage && msg.updated_at ? (
+                              <span className={`ml-1 text-[10px] ${isOwnMessage ? "text-gray-300" : "text-gray-400"}`}>
+                                edited
+                              </span>
+                            ) : null} {isOwnMessage && !isDeletedMessage && (
                               <span
-                                className={`ml-1 text-[11px] font-semibold inline-flex items-center ${selectedChat?.lastReadMessageId >= msg.id
+                                className={`ml-1 text-[11px] font-semibold inline-flex items-center ${(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
                                   ? "text-sky-400"
                                   : "text-gray-300"
                                   }`}
                               >
-                                {selectedChat?.lastReadMessageId >= msg.id
+                                {(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
                                   ? "✓✓"
                                   : "✓"}
                               </span>
                             )}
                           </p>
+                          )}
 
                           <p
                             className={`text-[10px] mt-1 text-right ${isOwnMessage
@@ -755,7 +1382,7 @@ export default function ChatPage() {
                           </p>
                         </div>
                       </div>
-                    </>
+                    </React.Fragment>
                   })
                 )}
               </div>
@@ -785,6 +1412,95 @@ export default function ChatPage() {
           </>
         )}
       </section>
+
+      {messageInfoMessage ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6"
+          onClick={() => setMessageInfoMessage(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Message info
+                </h2>
+                <p className="mt-1 text-sm text-gray-500">
+                  {messageInfoReadInfo.allRead
+                    ? "Everyone has read this message."
+                    : "Read status for group members."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMessageInfoMessage(null)}
+                className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:bg-gray-100"
+                aria-label="Close message info"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mb-5 rounded-2xl bg-gray-100 px-4 py-3 text-sm text-gray-800">
+              {messageInfoMessage.is_deleted
+                ? Number(messageInfoMessage.deleted_by) === Number(user?.id)
+                  ? "You deleted this message"
+                  : "This message has been deleted"
+                : messageInfoMessage.message}
+            </div>
+
+            <div className="space-y-5">
+              <div>
+                <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                  Read by
+                </h3>
+                {messageInfoReadInfo.readers.length === 0 ? (
+                  <p className="text-sm text-gray-500">No one has read it yet.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {messageInfoReadInfo.readers.map((receipt) => (
+                      <div key={receipt.userId} className="flex items-center gap-3">
+                        <img
+                          src={receipt.profile_picture || getProfileImage(receipt.name, receipt.userId)}
+                          alt={receipt.name || "User"}
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                        <p className="text-sm font-medium text-gray-900">
+                          {receipt.name || "User"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {messageInfoReadInfo.pendingReaders.length > 0 ? (
+                <div>
+                  <h3 className="mb-3 text-sm font-semibold text-gray-900">
+                    Not read yet
+                  </h3>
+                  <div className="space-y-3">
+                    {messageInfoReadInfo.pendingReaders.map((receipt) => (
+                      <div key={receipt.userId} className="flex items-center gap-3">
+                        <img
+                          src={receipt.profile_picture || getProfileImage(receipt.name, receipt.userId)}
+                          alt={receipt.name || "User"}
+                          className="h-9 w-9 rounded-full object-cover"
+                        />
+                        <p className="text-sm font-medium text-gray-900">
+                          {receipt.name || "User"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

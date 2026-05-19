@@ -42,10 +42,44 @@ exports.getUserContacts = async (req, res, next) => {
   try {
     const userId = req.user.id;
     const searchQuery = req.query.search || null;
+    const newChat = String(req.query.newChat).toLowerCase() === "true";
+
+    if (newChat) {
+      if (!searchQuery || !searchQuery.trim()) {
+        return res.status(200).json({
+          success: true,
+          data: []
+        });
+      }
+
+      const user = await userService.findUserByMobileNumber(searchQuery.trim());
+      if (!user) {
+        return res.status(200).json({
+          success: true,
+          data: []
+        });
+      }
+
+      const isInYourContact = await userService.isUserContact(userId, user.id);
+      const response = mapUserResponse(user);
+      response.isInYourContact = isInYourContact;
+
+      return res.status(200).json({
+        success: true,
+        data: [response]
+      });
+    }
+
     const contacts = await userService.getUserContacts(userId, searchQuery);
+    const data = contacts.map((contact) => {
+      const response = mapUserResponse(contact);
+      response.isInYourContact = true;
+      return response;
+    });
+
     res.status(200).json({
       success: true,
-      data: contacts.map(mapUserResponse)
+      data
     });
   } catch (error) {
     next(error);

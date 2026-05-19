@@ -1,11 +1,12 @@
-1. Need a box layout for profile
-2. Add new chat icon at below of side bar
-3. fix: seen message for group chats.
-4. Hide search contacts when search empty
-5. Show direct chat if found on search results, not show preview chat, then create chat on message.
+
+User auth, (register, login)
+create one to one, group chat
+
+
+
+
+
 6. fix: Fix back btn & icon on group details screen.
-7. Show add members option at group info page.
-8. Show a circle option on hover settings on chat header, apply cursor pointer for settings, apply on hover effect for each filed. Close icon when opens chat settings. On click anywhere should hide chat settings.
 9. Provide back btn on left side for user profile settings icon.
-10. remove signing google option, overthere. at login. Instead provide some text to avoid reducing area.
-11. Chat message update, delete features pending.
+10. group name update feature
+11. Left group

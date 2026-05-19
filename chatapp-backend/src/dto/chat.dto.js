@@ -2,6 +2,10 @@ const presenceService = require("../services/presence.service");
 
 exports.mapToChatSummary = async (chat, currentUserId, unreadCount = 0) => {
     let lastMessage = null;
+    const memberCount =
+        chat.type === "GROUP"
+            ? (chat.allMembers || []).filter(member => !member.left_at).length
+            : null;
 
     if (chat.ChatMessages && chat.ChatMessages.length > 0) {
         const lastMsg = chat.ChatMessages[chat.ChatMessages.length - 1];
@@ -14,7 +18,11 @@ exports.mapToChatSummary = async (chat, currentUserId, unreadCount = 0) => {
             sender_profile_picture: lastMsg.sender
                 ? lastMsg.sender.profile_picture
                 : null,
-            created_at: lastMsg.createdAt
+            created_at: lastMsg.createdAt,
+            updated_at: lastMsg.updatedAt || null,
+            is_deleted: lastMsg.is_deleted,
+            deleted_by: lastMsg.deleted_by,
+            deleted_at: lastMsg.deletedAt || null
         };
     }
 
@@ -71,12 +79,17 @@ exports.mapToChatSummary = async (chat, currentUserId, unreadCount = 0) => {
         isOnline,
         other_user_id,
         lastReadMessageId,
+        memberCount,
         unreadCount
     };
 };
 
 exports.mapChatMessagesResponse =
     async (chat, currentUserId) => {
+        const memberCount =
+            chat.type === "GROUP"
+                ? (chat.allMembers || []).filter(member => !member.left_at).length
+                : null;
         let chatName = chat.name;
         if (!chatName && chat.type === "ONE_TO_ONE") {
             const otherMember = chat.allMembers.find(m => m.user_id !== currentUserId);
@@ -106,6 +119,17 @@ exports.mapChatMessagesResponse =
         if (other_user_id) {
             isOnline = await presenceService.isUserOnline(other_user_id);
         }
+        const readReceipts =
+            chat.type === "GROUP"
+                ? (chat.allMembers || [])
+                    .filter(member => !member.left_at)
+                    .map(member => ({
+                        userId: member.user_id,
+                        name: member.user?.full_name || null,
+                        profile_picture: member.user?.profile_picture || null,
+                        lastReadMessageId: member.last_read_message_id || 0
+                    }))
+                : [];
         return {
             chat: {
                 chatId: chat.id,
@@ -115,7 +139,9 @@ exports.mapChatMessagesResponse =
                 last_seen: lastActive,
                 isOnline: isOnline,
                 other_user_id: other_user_id,
-                lastReadMessageId: lastReadMessageId
+                lastReadMessageId: lastReadMessageId,
+                memberCount,
+                readReceipts
             },
 
             messages:
@@ -126,6 +152,10 @@ exports.mapChatMessagesResponse =
                     sender_name: msg.sender ? msg.sender.full_name : null,
                     sender_profile_picture: msg.sender ? msg.sender.profile_picture : null,
                     created_at: msg.createdAt,
+                    updated_at: msg.updatedAt || null,
+                    is_deleted: msg.is_deleted,
+                    deleted_by: msg.deleted_by,
+                    deleted_at: msg.deletedAt || null,
                     reply_to_message_id: msg.reply_to_message_id
                 }))
         };
