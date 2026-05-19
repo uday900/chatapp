@@ -70,3 +70,42 @@ If you want I can:
 - Update the remaining Swagger blocks for all routes
 - Add migrations to explicitly update DB schema for `updatedAt`/`deletedAt`
 
+## Endpoints
+
+Base URL: `/api/v1`
+
+Users
+- `GET /api/v1/users` — Get all users
+- `GET /api/v1/users/contacts?search=<term>&newChat=<true|false>` — Get current user contacts. When `newChat=true` performs exact mobile lookup using `search` and returns matched user. Each user object includes `isInYourContact`.
+- `GET /api/v1/users/:id` — Get user by ID
+- `GET /api/v1/users/mobile/:mobileNumber` — Search user by mobile number
+
+Auth
+- `POST /api/v1/auth/register` — Register new user
+- `POST /api/v1/auth/login` — Login user
+
+Chats
+- `GET /api/v1/chats/my-chats` — Get all chats for current user. `lastMessage` includes `updated_at`, `is_deleted`, `deleted_by`, `deleted_at`.
+- `POST /api/v1/chats/create` — Create new chat
+- `GET /api/v1/chats/:id/messages` — Get messages for a chat. Each message includes `updated_at` and `deleted_at` (nullable).
+- `PUT /api/v1/chats/:id/messages/read` — Mark messages as read
+- `DELETE /api/v1/chats/:id/clear` — Clear chat messages for current user
+- `GET /api/v1/chats/:id/group-details` — Get group chat details
+- `POST /api/v1/chats/:id/members` — Add member to group
+- `DELETE /api/v1/chats/:id/members/:userId` — Remove member from group
+- `DELETE /api/v1/chats/:id/leave` — Leave group chat
+- `PUT /api/v1/chats/update-group-info` — Update group chat info
+- `GET /api/v1/chats/:groupId/available-members` — Get available members for adding to a group
+
+Socket events (server emits / listens)
+- `chat:join` — join a chat room
+- `message:send` — client sends a new message
+- `message:new` — server emits a newly created message (includes `created_at`, nullable `updated_at`)
+- `message:update` / `message:updated` — update flow for messages (server emits `updated_at`)
+- `message:delete` / `message:deleted` — delete flow (server emits `deleted_at`, `deleted_by`)
+- `typing:start` / `typing:started` and `typing:stop` / `typing:stopped` — typing indicators
+- `presence:heartbeat` / `presence:online` / `presence:offline` — presence events
+
+If you'd like, I can expand each endpoint to include request/response examples and required permissions.
+
+
