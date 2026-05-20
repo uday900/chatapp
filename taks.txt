@@ -1,12 +1,5 @@
 
-User auth, (register, login)
-create one to one, group chat
-
-
-
-
-
-6. fix: Fix back btn & icon on group details screen.
-9. Provide back btn on left side for user profile settings icon.
 10. group name update feature
-11. Left group
+12. update username also
+11. Left group, add in chat settings for group chats
+12. fix close icon for chat settings & anywhere click outside should hide

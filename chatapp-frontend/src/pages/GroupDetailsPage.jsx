@@ -8,6 +8,7 @@ import api from '../api/axios';
 import { showError, showSuccess } from '../utils/toast';
 import AddGroupMemberModal from '../components/AddGroupMemberModal';
 import { getMyChatsApi } from '../redux/slice/chat.slice';
+import { IoArrowBack } from 'react-icons/io5';
 
 export default function GroupDetailsPage() {
   const { chatId } = useParams();
@@ -78,12 +79,19 @@ export default function GroupDetailsPage() {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-5 py-4 flex items-center gap-4">
-        <button
+        {/* <button
           onClick={() => navigate(-1)}
           className="text-gray-600 hover:text-gray-800"
         >
           ← Back
-        </button>
+        </button> */}
+        <button
+                  type="button"
+                  onClick={() => navigate(-1)}
+                  className="flex items-center justify-center w-11 h-11 rounded-full cursor-pointer text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95"
+                >
+                  <IoArrowBack className="text-[24px]" />
+                </button>
         <h1 className="text-xl font-semibold text-gray-900">Group Details</h1>
       </div>
 

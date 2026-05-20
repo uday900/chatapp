@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import { IoArrowBack, IoChatbubbleOutline, IoChevronDown, IoChevronUp } from "react-icons/io5";
-
 import {
   getMyChatsApi,
   getChatMessagesApi,
@@ -24,9 +23,10 @@ import {
   formatMessageDateLabel,
 } from "../utils/date.util";
 import { getProfileImage } from "../utils/constants";
-import { showError } from "../utils/toast";
+import { showError, showSuccess } from "../utils/toast";
 import AddGroupMemberModal from "../components/AddGroupMemberModal";
 import CreateGroupModal from "../components/CreateGroupModal";
+import ConfirmBox from "../components/ConfirmBox";
 
 const SIDEBAR_MIN_WIDTH = 300;
 const SIDEBAR_MAX_WIDTH = 520;
@@ -66,6 +66,9 @@ export default function ChatPage() {
   const [editMessageText, setEditMessageText] = useState("");
   const [openMessageMenuId, setOpenMessageMenuId] = useState(null);
   const [messageInfoMessage, setMessageInfoMessage] = useState(null);
+  const headerMenuRef = useRef(null);
+  const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+
   const { messages } = useSelector((state) => state.chat);
 
   useEffect(() => {
@@ -700,6 +703,71 @@ export default function ChatPage() {
       allRead: false
     };
 
+  const handleLeaveGroup = async () => {
+
+    if (!selectedChat?.chatId)
+      return;
+
+    try {
+
+      await api.delete(
+        `/chats/${selectedChat.chatId}/leave`
+      );
+
+      setShowLeaveConfirm(false);
+      setShowHeaderMenu(false);
+
+      dispatch(getMyChatsApi());
+
+      dispatch(
+        setSelectedChat(null)
+      );
+
+      showSuccess("You have successfully left the group.");
+
+    } catch (error) {
+
+      showError(
+        error?.response?.data
+          ?.message ||
+        "Unable to leave group"
+      );
+    }
+  };
+
+
+  useEffect(() => {
+
+    if (!showHeaderMenu) return;
+
+    const handleOutsideClick = (
+      event
+    ) => {
+
+      if (
+        headerMenuRef.current &&
+        !headerMenuRef.current.contains(
+          event.target
+        )
+      ) {
+        setShowHeaderMenu(false);
+      }
+    };
+
+    document.addEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        "mousedown",
+        handleOutsideClick
+      );
+    };
+
+  }, [showHeaderMenu]);
+
   return (
     <div className="h-screen flex bg-[#f5f7fb] overflow-hidden">
       {/* Sidebar */}
@@ -828,7 +896,7 @@ export default function ChatPage() {
               <div className="space-y-4">
 
 
-                <div className="">
+                <div className="darla-new-group-button">
                   <button
                     type="button"
                     onClick={() => {
@@ -836,7 +904,9 @@ export default function ChatPage() {
                       setQuickNewChatMode(false);
                       setShowNewChatPanel(false);
                     }}
-                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition 
+                    hover:border-black/10 hover:shadow-md
+                    cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-indigo-50 text-indigo-600">
@@ -851,7 +921,7 @@ export default function ChatPage() {
                     </div>
                   </button>
                 </div>
-                <div className="">
+                <div className="darla-quick-new-chat-button">
                   <button
                     type="button"
                     onClick={() => {
@@ -860,7 +930,7 @@ export default function ChatPage() {
                       setContactSearch("");
                       setTimeout(() => contactSearchInputRef.current?.focus(), 100);
                     }}
-                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-black/10 hover:shadow-md"
+                    className="group w-full rounded-[28px] border border-gray-200 bg-white px-4 py-4 text-left shadow-sm transition hover:border-black/10 hover:shadow-md cursor-pointer"
                   >
                     <div className="flex items-center gap-4">
                       <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-200 text-green-600">
@@ -1066,28 +1136,72 @@ export default function ChatPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={(e) => toggleHeaderMenu(e)}
-                  className="p-2 rounded-full text-black hover:bg-gray-100"
-                  aria-label="Chat menu"
-                >
-                  <span className="text-lg leading-none">⋮</span>
-                </button>
+                <div className="flex items-center gap-1">
+
+                  {!showHeaderMenu ? (
+                    <button
+                      // onClick={toggleHeaderMenu}
+                      onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(true); }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-black transition hover:bg-gray-100 cursor-pointer"
+                      aria-label="Open chat menu"
+                    >
+                      <span className="text-xl leading-none">
+                        ⋮
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowHeaderMenu(false); }}
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-black transition hover:bg-gray-100 cursor-pointer"
+                      aria-label="Close chat menu"
+                    >
+                      <span className="text-lg leading-none">
+                        ✕
+                      </span>
+                    </button>
+                  )}
+
+                </div>
               </div>
 
               {showHeaderMenu && (
-                <div className="absolute top-full right-4 z-30 mt-2 w-44 rounded-3xl bg-white border border-gray-200 shadow-xl">
-                  {selectedChat?.type === "GROUP" && (
-                    <button
-                      onClick={openAddMemberModal}
-                      className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-gray-100"
-                    >
-                      Add member
-                    </button>
-                  )}
+                <div
+                  ref={headerMenuRef}
+                  onClick={(e) => e.stopPropagation()}
+                  className="absolute top-full right-4 z-30 mt-2 w-52 rounded-3xl bg-white border border-gray-200 shadow-xl overflow-hidden"
+                >
+
+
+
+                  {/* Add Member */}
+                  {selectedChat?.type ===
+                    "GROUP" && (
+                      <button
+                        onClick={openAddMemberModal}
+                        className="w-full text-left px-4 py-3 text-sm text-gray-900 transition hover:bg-gray-100 cursor-pointer"
+                      >
+                        Add member
+                      </button>
+                    )}
+
+                  {/* Leave Group */}
+                  {selectedChat?.type ===
+                    "GROUP" && (
+                      <button
+                        onClick={() => {
+                          setShowLeaveConfirm(true);
+                          setShowHeaderMenu(false);
+                        }}
+                        className="w-full text-left px-4 py-3 text-sm text-red-600 transition hover:bg-red-50 cursor-pointer"
+                      >
+                        Leave group
+                      </button>
+                    )}
+
+                  {/* Clear Chat */}
                   <button
                     onClick={openClearChatModal}
-                    className="w-full text-left px-4 py-3 text-sm text-gray-900 hover:bg-gray-100"
+                    className="w-full text-left px-4 py-3 text-sm text-gray-900 transition hover:bg-gray-100 cursor-pointer"
                   >
                     Clear chat
                   </button>
@@ -1123,30 +1237,20 @@ export default function ChatPage() {
               )}
 
               {showClearConfirm && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-                  <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-3">
-                      Clear chat
-                    </h2>
-                    <p className="text-sm text-gray-600 mb-6">
-                      Are you sure you want to clear this chat? This will remove all messages from the conversation.
-                    </p>
-                    <div className="flex justify-end gap-3">
-                      <button
-                        onClick={closeClearChatModal}
-                        className="px-4 py-2 rounded-full border border-gray-300 text-gray-700 hover:bg-gray-100"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={handleClearChatConfirm}
-                        className="px-4 py-2 rounded-full bg-black text-white hover:bg-gray-800"
-                      >
-                        Proceed
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ConfirmBox
+                  title="Clear Chat"
+                  message="Are you sure you want to clear this chat? This will remove all messages from the conversation."
+                  onConfirm={handleClearChatConfirm}
+                  onCancel={closeClearChatModal}
+                />
+              )}
+              {showLeaveConfirm && (
+                <ConfirmBox
+                  title="Leave Group"
+                  message="Are you sure you want to leave this group? You will lose access to the conversation."
+                  onConfirm={handleLeaveGroup}
+                  onCancel={() => setShowLeaveConfirm(false)}
+                />
               )}
             </div>
 
@@ -1260,7 +1364,7 @@ export default function ChatPage() {
                                 className={`absolute right-2 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-white transition ${openMessageMenuId === msg.id
                                   ? "bg-white/20 opacity-100"
                                   : "opacity-0 hover:bg-white/10 group-hover/message:opacity-100"
-                                }`}
+                                  }`}
                                 aria-label="Message actions"
                               >
                                 {openMessageMenuId === msg.id ? (
@@ -1348,26 +1452,26 @@ export default function ChatPage() {
                               </div>
                             </div>
                           ) : (
-                          <p className="text-sm whitespace-pre-wrap break-words">
-                            <span className={isDeletedMessage ? "italic opacity-80" : ""}>
-                              {messageText}
-                            </span> {!isDeletedMessage && msg.updated_at ? (
-                              <span className={`ml-1 text-[10px] ${isOwnMessage ? "text-gray-300" : "text-gray-400"}`}>
-                                edited
-                              </span>
-                            ) : null} {isOwnMessage && !isDeletedMessage && (
-                              <span
-                                className={`ml-1 text-[11px] font-semibold inline-flex items-center ${(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
-                                  ? "text-sky-400"
-                                  : "text-gray-300"
-                                  }`}
-                              >
-                                {(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
-                                  ? "✓✓"
-                                  : "✓"}
-                              </span>
-                            )}
-                          </p>
+                            <p className="text-sm whitespace-pre-wrap break-words">
+                              <span className={isDeletedMessage ? "italic opacity-80" : ""}>
+                                {messageText}
+                              </span> {!isDeletedMessage && msg.updated_at ? (
+                                <span className={`ml-1 text-[10px] ${isOwnMessage ? "text-gray-300" : "text-gray-400"}`}>
+                                  edited
+                                </span>
+                              ) : null} {isOwnMessage && !isDeletedMessage && (
+                                <span
+                                  className={`ml-1 text-[11px] font-semibold inline-flex items-center ${(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
+                                    ? "text-sky-400"
+                                    : "text-gray-300"
+                                    }`}
+                                >
+                                  {(isGroupChat ? groupReadInfo?.allRead : selectedChat?.lastReadMessageId >= msg.id)
+                                    ? "✓✓"
+                                    : "✓"}
+                                </span>
+                              )}
+                            </p>
                           )}
 
                           <p

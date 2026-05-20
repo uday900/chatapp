@@ -15,7 +15,8 @@ exports.getUserChats = async (userId) => {
                 model: ChatMember,
                 as: "members",
                 where: {
-                    user_id: userId
+                    user_id: userId,
+                    left_at: null
                 },
                 attributes: [],
                 required: true
@@ -23,6 +24,9 @@ exports.getUserChats = async (userId) => {
             {
                 model: ChatMember,
                 as: "allMembers",
+                where: {
+                    left_at: null
+                },
                 include: [
                     {
                         model: User,
@@ -411,7 +415,8 @@ exports.addMemberToGroup = async (chatId, targetUserIds, currentUserId) => {
     const existingMembers = await ChatMember.findAll({
         where: {
             chat_id: chatId,
-            user_id: uniqueTargetIds
+            user_id: uniqueTargetIds,
+            left_at: null
         }
     });
 
@@ -888,7 +893,8 @@ exports.getAvailableMembers = async (groupId, userId) => {
     */
     const groupMembers = await ChatMember.findAll({
         where: {
-            chat_id: groupId
+            chat_id: groupId,
+            left_at: null
         },
         attributes: ["user_id"]
     });

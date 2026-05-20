@@ -27,3 +27,26 @@ exports.loginSchema = joi.object({
   email: joi.string().email().required(),
   password: joi.string().required()
 });
+
+exports.forgotPasswordSchema = joi.object({
+  email: joi.string().email().required()
+});
+
+exports.verifyForgotOtpSchema = joi.object({
+  email: joi.string().email().required(),
+  otp: joi.string().length(6).pattern(/^[0-9]{6}$/).required()
+});
+
+exports.resetPasswordSchema = joi.object({
+  resetToken: joi.string().required(),
+  newPassword: joi.string()
+    .min(8)
+    .max(100)
+    .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]).+$/)
+    .required()
+    .messages({
+      "string.min": "Password must be at least 8 characters long",
+      "string.pattern.base": "Password must include uppercase, lowercase, number, and special character",
+      "any.required": "New password is required"
+    })
+});

@@ -16,6 +16,7 @@ export default function SignupPage() {
     email: "",
     password: "",
   });
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const { registerLoading, error } = useSelector(
     (state) => state.auth
@@ -135,15 +136,25 @@ export default function SignupPage() {
                 <label className="block text-[11px] font-semibold text-gray-600 uppercase tracking-wide mb-2">
                   Password
                 </label>
-                <input
-                  type="password"
-                  name="password"
-                  placeholder="••••••••"
-                  value={formData.password}
-                  onChange={handleChange}
-                  required
-                  className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition"
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    name="password"
+                    placeholder="••••••••"
+                    value={formData.password}
+                    onChange={handleChange}
+                    required
+                    className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition"
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-gray-500 hover:text-gray-900"
+                  >
+                    {showPassword ? "👁️" : "🙈"}
+                  </button>
+                </div>
               </div>
 
               {/* Error */}

@@ -4,14 +4,20 @@ import LoginPage from './pages/LoginPage';
 import { Toaster } from 'react-hot-toast';
 import ProtectedRoute from './router/ProtectedRoute';
 import SignupPage from './pages/SignupPage';
+import ResetPassword from './components/ResetPassword';
 import ChatPage from './pages/ChatPage';
 import GroupDetailsPage from './pages/GroupDetailsPage';
 import SettingsPage from './pages/SettingsPage';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import ForgotPassword from './components/ForgotPassword';
+import VerifyOtp from './components/VerifyOtp';
 
 function App() {
-
+const [resetToken, setResetToken] = useState(null);
+     const clearResetToken = () => { setResetToken(null); };
   useEffect(() => {
+    
+
     const handleServerDown = () => {
       alert(
         "Server unavailable. Please try again later."
@@ -55,6 +61,9 @@ function App() {
 
         <Route path={REACT_ENDPOINTS.LOGIN} element={<LoginPage />} />
         <Route path={REACT_ENDPOINTS.SIGNUP} element={<SignupPage />} />
+        <Route path={REACT_ENDPOINTS.FORGOT_PASSWORD} element={<ForgotPassword />} />
+        <Route path={REACT_ENDPOINTS.VERIFY_OTP} element={<VerifyOtp setResetToken={setResetToken} />} />
+        <Route path={REACT_ENDPOINTS.RESET_PASSWORD} element={<ResetPassword resetToken={resetToken} clearResetToken={clearResetToken} />} />
 
       </Routes>
 

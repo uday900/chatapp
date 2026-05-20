@@ -13,6 +13,7 @@ export default function LoginPage() {
 
   const [username, setUsername] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const [showPassword, setShowPassword] = React.useState(false);
   
   const { loading, error } = useSelector((state) => state.auth);
 
@@ -82,20 +83,31 @@ export default function LoginPage() {
                   </label>
                   <button
                     type="button"
-                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                    className="text-sm text-indigo-600 hover:text-indigo-700 font-medium cursor-pointer"
+                    onClick={() => navigate(REACT_ENDPOINTS.FORGOT_PASSWORD)}
                   >
                     Forgot password?
                   </button>
                 </div>
 
-                <input
-                  type="password"
-                  placeholder="••••••••"
-                  className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                />
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    className="w-full h-11 px-4 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-black/10 focus:border-black transition"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-gray-500 hover:text-gray-900"
+                  >
+                    {showPassword ? "👁️" : "🙈"}
+                  </button>
+                </div>
               </div>
 
               {/* Sign In */}

@@ -2,6 +2,9 @@
 export const API_ENDPOINTS = {
     // Auth endpoints
     LOGIN: '/auth/login',
+    FORGOT_PASSWORD: '/auth/forgot-password',
+    VERIFY_FORGOT_OTP: '/auth/verify-forgot-otp',
+    RESET_PASSWORD: '/auth/reset-password',
     REGISTER: '/auth/register',
     REFRESH_TOKEN: '/auth/refresh',
     LOGOUT: '/auth/logout',
@@ -54,6 +57,9 @@ export const REACT_ENDPOINTS = {
     HOME: "/",
     LOGIN: "/auth/login",
     SIGNUP: "/auth/register",
+    FORGOT_PASSWORD: "/auth/forgot",
+    VERIFY_OTP: "/auth/verify-otp",
+    RESET_PASSWORD: "/auth/reset",
     GROUP_DETAILS: "/group-details/:chatId",
     SETTINGS: "/settings"
 }

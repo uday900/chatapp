@@ -54,7 +54,9 @@ export default function ErrorScreen({
         <button
           onClick={onRetry}
           disabled={isLoading}
-          className={`${current.buttonColor} text-white font-semibold py-3 px-6 rounded-full transition flex items-center justify-center gap-2 w-full disabled:opacity-50 disabled:cursor-not-allowed`}
+          className={`${current.buttonColor} text-white font-semibold py-3 px-6 rounded-full transition 
+          flex items-center justify-center gap-2 w-full disabled:opacity-50 disabled:cursor-not-allowed
+          cursor-pointer`}
           aria-label="Retry connection"
         >
           {isLoading ? (

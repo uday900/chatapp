@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
+import { IoArrowBack } from "react-icons/io5";
 import api from '../api/axios';
 import { API_ENDPOINTS, REACT_ENDPOINTS } from '../utils/endpoints';
 import { showError } from '../utils/toast';
@@ -31,7 +32,7 @@ export default function SettingsPage() {
       } catch (error) {
         showError(
           error?.response?.data?.message ||
-            'Unable to fetch user details. Please try again.'
+          'Unable to fetch user details. Please try again.'
         );
       } finally {
         setLoading(false);
@@ -60,18 +61,21 @@ export default function SettingsPage() {
 
   return (
     <div className="min-h-screen bg-[#f8fafc]">
-      <div className="bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500">Manage your account details and logout.</p>
-        </div>
+      <div className="bg-white border-b border-gray-200 px-5 py-4 flex items-center justify-start gap-4">
+        
+
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="text-gray-600 hover:text-gray-800"
+          className="flex items-center justify-center w-11 h-11 rounded-full cursor-pointer text-gray-600 transition-all duration-200 hover:bg-gray-100 hover:text-black active:scale-95"
         >
-          ← Back
+          <IoArrowBack className="text-[24px]" />
         </button>
+<div>
+          <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+          <p className="text-sm text-gray-500">Manage your account details and logout.</p>
+        </div>
+
       </div>
 
       <div className="max-w-3xl mx-auto p-6">
@@ -115,7 +119,10 @@ export default function SettingsPage() {
                 type="button"
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className={`inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white ${loggingOut ? 'bg-gray-300 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'}`}
+                className={`inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-semibold text-white transition-all duration-200 active:scale-95 ${loggingOut
+                    ? "bg-gray-300 cursor-not-allowed"
+                    : "bg-red-500 hover:bg-red-600 cursor-pointer shadow-sm hover:shadow-md"
+                  }`}
               >
                 {loggingOut ? 'Logging out...' : 'Logout'}
               </button>

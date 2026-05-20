@@ -47,7 +47,7 @@ export default function CreateGroupModal({ open, onClose, onGroupCreated }) {
       } catch (error) {
         showError(
           error?.response?.data?.message ||
-            "Unable to load contacts. Please try again."
+          "Unable to load contacts. Please try again."
         );
       } finally {
         setContactsLoading(false);
@@ -115,7 +115,7 @@ export default function CreateGroupModal({ open, onClose, onGroupCreated }) {
       console.error("Create group error:", error);
       showError(
         error?.response?.data?.message ||
-          "Failed to create group. Please try again."
+        "Failed to create group. Please try again."
       );
     } finally {
       setIsCreating(false);
@@ -123,8 +123,11 @@ export default function CreateGroupModal({ open, onClose, onGroupCreated }) {
   };
 
   return (
-    <ModalShell open={open} onClose={onClose}>
+    <ModalShell open={open} onClose={onClose} title="Create Group">
       <div className="max-h-[60vh] overflow-y-auto">
+        <div className="mb-6 flex items-start justify-between gap-4">
+
+        </div>
         {/* Group Name Input */}
         <div className="mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">

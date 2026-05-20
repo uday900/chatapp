@@ -11,7 +11,7 @@ exports.getUserChats = async (req, res, next) => {
             success: true,
             data: result
         });
-    } catch (error) {getUserContacts
+    } catch (error) {
         next(error);
     }
 };

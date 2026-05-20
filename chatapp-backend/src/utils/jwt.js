@@ -1,13 +1,13 @@
 const jwt = require('jsonwebtoken');
 const AppError = require('./AppError');
 const { unauthorized } = require('./errorFactory');
-const { INVALID_TOKEN, TOKEN_EXPIRED, UNAUTHORIZED } = require('../constants/errorCodes');
+const { INVALID_TOKEN, TOKEN_EXPIRED, UNAUTHORIZED, INVALID_RESET_TOKEN, RESET_TOKEN_EXPIRED } = require('../constants/errorCodes');
 
-exports.generateToken = (payload) => {
+exports.generateToken = (payload, options = {}) => {
     return jwt.sign(
         payload,
         process.env.JWT_SECRET,
-        // { expiresIn: '24h' }
+        options
     );
 };
 
@@ -36,4 +36,52 @@ exports.verifyToken = (token) => {
             UNAUTHORIZED
         );
     }
+};
+
+exports.verifyResetToken = (
+  token
+) => {
+  try {
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET
+    );
+
+    if (
+      decoded.type !==
+      "password_reset"
+    ) {
+      throw new AppError(
+        "Invalid reset token",
+        401,
+        INVALID_RESET_TOKEN
+      );
+    }
+
+    return decoded;
+  } catch (error) {
+    if (
+      error.name ===
+      "TokenExpiredError"
+    ) {
+      throw new AppError(
+        "Reset session expired",
+        401,
+        RESET_TOKEN_EXPIRED
+      );
+    }
+
+    if (
+      error.name ===
+      "JsonWebTokenError"
+    ) {
+      throw new AppError(
+        "Invalid reset token",
+        401,
+        INVALID_RESET_TOKEN
+      );
+    }
+
+    throw error;
+  }
 };
