@@ -38,6 +38,62 @@ exports.getUserById = async (req, res, next) => {
   }
 };
 
+exports.updateUserNameAndProfilePicture = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { full_name, profile_picture } = req.body;
+
+    if (!full_name && !profile_picture) {
+      throw new AppError("At least one of full_name or profile_picture must be provided", 400);
+    }
+
+    const updatedUser = await userService.updateUser(userId, { full_name, profile_picture });
+
+    successResponse(
+      res,
+      mapUserResponse(updatedUser),
+      "User updated successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateEmail = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { email } = req.body;
+    if (!email) {
+      throw new AppError("Email is required", 400);
+    }
+    const updatedUser = await userService.updateEmail(userId, email);
+    successResponse(
+      res,
+      mapUserResponse(updatedUser),
+      "Email updated successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateMobileNumber = async (req, res, next) => {
+  try {
+    const userId = req.user.id;
+    const { mobile_number } = req.body;
+    if (!mobile_number) {
+      throw new AppError("Mobile number is required", 400);
+    }
+    const updatedUser = await userService.updateMobileNumber(userId, mobile_number);
+    successResponse(
+      res,
+      mapUserResponse(updatedUser),
+      "Mobile number updated successfully"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
 exports.getUserContacts = async (req, res, next) => {
   try {
     const userId = req.user.id;

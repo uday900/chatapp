@@ -298,4 +298,5 @@ router.put("/update-group-info", chatController.updateGroupInfo);
  *         description: Available members fetched successfully
  */
 router.get("/:groupId/available-members", chatController.getAvailableMembers);
+
 module.exports = router;

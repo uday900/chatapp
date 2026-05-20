@@ -93,6 +93,12 @@ router.get(USER_CONTACT, userController.getUserContacts);
  */
 router.get(BY_ID, userController.getUserById);
 
+router.patch(URL_SEPARATOR, userController.updateUserNameAndProfilePicture);
+
+router.patch("/email", userController.updateEmail);
+
+router.patch("/mobile", userController.updateMobileNumber);
+
 /**
  * @swagger
  * /users/search/{mobileNumber}:

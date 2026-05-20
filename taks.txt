@@ -1,5 +1,11 @@
+bugs:
 
+
+features;
 10. group name update feature
 12. update username also
-11. Left group, add in chat settings for group chats
-12. fix close icon for chat settings & anywhere click outside should hide
+14. reply message feature
+
+/update-group-info
+
+replyToMessageId
