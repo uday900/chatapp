@@ -167,6 +167,12 @@ const chatSlice = createSlice({
         setSelectedChat: (state, action) => {
             console.log(`Selected chat [${action.payload?.chatId}]:`, action.payload);
             state.selectedChat = action.payload;
+            // reset unread count for this chat
+            state.chats = state.chats.map((chat) =>
+                chat.chatId === action.payload?.chatId
+                    ? { ...chat, unreadCount: 0 }
+                    : chat
+            );
         },
         clearSelectedChat: (state) => {
             state.selectedChat = null;

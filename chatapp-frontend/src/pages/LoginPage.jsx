@@ -99,11 +99,12 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                  {/* Eye Icon */}
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"}
                     onClick={() => setShowPassword((prev) => !prev)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-gray-500 hover:text-gray-900"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-lg text-gray-500 hover:text-gray-900 cursor-pointer transition" 
                   >
                     {showPassword ? "👁️" : "🙈"}
                   </button>
@@ -113,7 +114,7 @@ export default function LoginPage() {
               {/* Sign In */}
               <button
                 type="submit"
-                className="w-full h-11 rounded-xl bg-black text-white font-semibold hover:opacity-90 transition"
+                className="w-full h-11 rounded-xl bg-black text-white font-semibold hover:opacity-90 transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Sign in
               </button>

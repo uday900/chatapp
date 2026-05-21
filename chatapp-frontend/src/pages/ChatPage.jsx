@@ -69,6 +69,9 @@ export default function ChatPage() {
   const headerMenuRef = useRef(null);
   const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
 
+  const [replyingToMessage, setReplyingToMessage] = useState(null);
+
+
   const { messages } = useSelector((state) => state.chat);
 
   useEffect(() => {
@@ -530,6 +533,7 @@ export default function ChatPage() {
     const payload = {
       chatId,
       message: text,
+      replyToMessageId: replyingToMessage?.id
     };
 
     console.log("Emitting [message:send] with payload:", payload);
@@ -815,7 +819,7 @@ export default function ChatPage() {
               <button
                 type="button"
                 onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 transition hover:border-gray-300 hover:text-gray-900"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-white text-gray-600 transition hover:border-gray-300 hover:text-gray-900 "
                 aria-label="Settings"
               >
                 <svg
@@ -1266,12 +1270,9 @@ export default function ChatPage() {
                   </p>
                 ) : (
                   activeMessages.map((msg, index) => {
-                    const isOwnMessage =
-                      msg.sender_id === user?.id;
-                    const isDeletedMessage =
-                      Boolean(msg.is_deleted);
-                    const deletedByCurrentUser =
-                      Number(msg.deleted_by) === Number(user?.id);
+                    const isOwnMessage = msg.sender_id === user?.id;
+                    const isDeletedMessage = Boolean(msg.is_deleted);
+                    const deletedByCurrentUser = Number(msg.deleted_by) === Number(user?.id);
                     const messageText =
                       isDeletedMessage
                         ? deletedByCurrentUser
@@ -1279,8 +1280,7 @@ export default function ChatPage() {
                           : "This message has been deleted"
                         : msg.message;
 
-                    const isGroupChat =
-                      selectedChat?.type === "GROUP";
+                    const isGroupChat = selectedChat?.type === "GROUP";
                     const groupReadInfo =
                       isOwnMessage && isGroupChat
                         ? getGroupMessageReadInfo(msg)
@@ -1291,8 +1291,7 @@ export default function ChatPage() {
                         ? activeMessages[index - 1]
                         : null;
 
-                    const currentDateLabel =
-                      formatMessageDateLabel(msg.created_at);
+                    const currentDateLabel = formatMessageDateLabel(msg.created_at);
 
                     const previousDateLabel =
                       previousMessage
@@ -1301,8 +1300,13 @@ export default function ChatPage() {
                         )
                         : null;
 
-                    const showDateSeparator =
-                      currentDateLabel !== previousDateLabel;
+                    const showDateSeparator = currentDateLabel !== previousDateLabel;
+
+                    const repliedMessage = msg.reply_to_message_id
+                      ? activeMessages.find(
+                        (m) => m.id === msg.reply_to_message_id
+                      )
+                      : null;
                     return <React.Fragment key={msg.id}>
                       {showDateSeparator && (
                         <div className="flex justify-center my-4" key={index}>
@@ -1346,13 +1350,14 @@ export default function ChatPage() {
                         )}
 
                         <div
-                          className={`group/message relative max-w-[70%] px-4 py-2 rounded-2xl shadow-sm ${isOwnMessage ? "pr-9" : ""} ${isOwnMessage
+                          className={`group/message relative max-w-[70%] px-4 py-2 rounded-2xl shadow-sm pr-9 ${isOwnMessage
                             ? "bg-black text-white rounded-br-sm"
                             : "bg-white border text-gray-900 rounded-bl-sm"
                             }`}
                         >
-                          {isOwnMessage && !isDeletedMessage && editingMessageId !== msg.id ? (
+                          {!isDeletedMessage && editingMessageId !== msg.id ? (
                             <div ref={openMessageMenuId === msg.id ? messageMenuRef : null}>
+
                               <button
                                 type="button"
                                 onClick={(event) => {
@@ -1361,10 +1366,16 @@ export default function ChatPage() {
                                     currentId === msg.id ? null : msg.id
                                   );
                                 }}
-                                className={`absolute right-2 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full text-white transition ${openMessageMenuId === msg.id
-                                  ? "bg-white/20 opacity-100"
-                                  : "opacity-0 hover:bg-white/10 group-hover/message:opacity-100"
-                                  }`}
+                                className={`absolute right-2 top-1 z-10 flex h-6 w-6 items-center justify-center rounded-full transition cursor-pointer
+    ${isOwnMessage
+                                    ? "text-white hover:bg-white/10"
+                                    : "text-gray-700 hover:bg-gray-200"
+                                  }
+    ${openMessageMenuId === msg.id
+                                    ? "opacity-100"
+                                    : "opacity-0 group-hover/message:opacity-100"
+                                  }
+  `}
                                 aria-label="Message actions"
                               >
                                 {openMessageMenuId === msg.id ? (
@@ -1379,26 +1390,38 @@ export default function ChatPage() {
                                     <button
                                       type="button"
                                       onClick={() => openMessageInfo(msg)}
-                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100"
+                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
                                     >
                                       Info
                                     </button>
                                   ) : null}
-                                  {isEditableToday ? (
+                                  {isEditableToday && isOwnMessage ? (
                                     <button
                                       type="button"
                                       onClick={() => startEditMessage(msg)}
-                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100"
+                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
                                     >
                                       Edit
                                     </button>
                                   ) : null}
+                                  {isOwnMessage && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleDeleteMessage(msg)}
+                                      className="rounded-full px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50 cursor-pointer"
+                                    >
+                                      Delete
+                                    </button>
+                                  )}
                                   <button
                                     type="button"
-                                    onClick={() => handleDeleteMessage(msg)}
-                                    className="rounded-full px-2 py-1 text-[11px] font-medium text-red-600 hover:bg-red-50"
+                                    onClick={() => {
+                                      setReplyingToMessage(msg);
+                                      setOpenMessageMenuId(null);
+                                    }}
+                                    className="rounded-full px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100 cursor-pointer"
                                   >
-                                    Delete
+                                    Reply
                                   </button>
                                 </div>
                               ) : null}
@@ -1410,7 +1433,32 @@ export default function ChatPage() {
                               {msg?.sender_name || "User"}
                             </p>
                           )}
+                          {repliedMessage && (
+                            <div
+                              className={`mb-2 rounded-xl px-3 py-2 border-l-4 ${isOwnMessage
+                                ? "bg-white/10 border-white/40"
+                                : "bg-gray-100 border-gray-400"
+                                }`}
+                            >
+                              <p
+                                className={`text-xs font-semibold ${isOwnMessage
+                                  ? "text-gray-200"
+                                  : "text-gray-700"
+                                  }`}
+                              >
+                                {repliedMessage.sender_name || "User"}
+                              </p>
 
+                              <p
+                                className={`text-xs truncate ${isOwnMessage
+                                  ? "text-gray-300"
+                                  : "text-gray-600"
+                                  }`}
+                              >
+                                {repliedMessage.message}
+                              </p>
+                            </div>
+                          )}
                           {editingMessageId === msg.id && !isDeletedMessage ? (
                             <div className="space-y-2">
                               <textarea
@@ -1452,6 +1500,7 @@ export default function ChatPage() {
                               </div>
                             </div>
                           ) : (
+
                             <p className="text-sm whitespace-pre-wrap break-words">
                               <span className={isDeletedMessage ? "italic opacity-80" : ""}>
                                 {messageText}
@@ -1492,25 +1541,64 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Input */}
-            <div className="p-4 bg-white border-t border-gray-200">
-              <div className="flex items-center gap-3">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Type a message"
-                  className="flex-1 h-12 px-4 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black/10"
-                />
+            {/* Input Area */}
+            <div className="border-t border-gray-200 bg-white px-4 pt-3">
 
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim()}
-                  className={`h-12 px-6 rounded-full text-white font-medium transition ${input.trim() ? "bg-black hover:opacity-90" : "bg-gray-300 cursor-not-allowed"}`}
-                >
-                  Send
-                </button>
+              {/* Reply Preview Card */}
+              {replyingToMessage && (
+                <div className="px-4 pt-3">
+                  <div className="relative max-w-xl rounded-2xl border border-gray-200 bg-white shadow-sm px-4 py-3">
+
+                    {/* Close Button */}
+                    <button
+                      onClick={() => setReplyingToMessage(null)}
+                      className="absolute top-3 right-3 text-gray-400 hover:text-black transition cursor-pointer"
+                    >
+                      ✕
+                    </button>
+
+                    {/* Sender + Time */}
+                    <div className="flex items-center gap-2 text-sm mb-1">
+                      <span className="font-semibold text-black">
+                        {replyingToMessage.sender?.name || "You"}
+                      </span>
+
+                      <span className="text-gray-500 text-xs">
+                        {new Date(replyingToMessage.created_at).toLocaleString()}
+                      </span>
+                    </div>
+
+                    {/* Message Preview */}
+                    <p className="text-sm text-gray-700 line-clamp-2 break-words pr-6">
+                      {replyingToMessage?.message || "Message not found"}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Actual Input */}
+              <div className="p-4">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Type a message"
+                    className="flex-1 h-12 px-4 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-black/10"
+                  />
+
+                  <button
+                    onClick={handleSend}
+                    disabled={!input.trim()}
+                    className={`h-12 px-6 rounded-full text-white font-medium transition ${input.trim()
+                      ? "bg-black hover:opacity-90"
+                      : "bg-gray-300 cursor-not-allowed"
+                      }`}
+                  >
+                    Send
+                  </button>
+                </div>
               </div>
             </div>
           </>

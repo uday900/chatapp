@@ -4,8 +4,5 @@ bugs:
 features;
 10. group name update feature
 12. update username also
-14. reply message feature
 
 /update-group-info
-
-replyToMessageId
