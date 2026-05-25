@@ -9,6 +9,7 @@ import { showError, showSuccess } from '../utils/toast';
 import AddGroupMemberModal from '../components/AddGroupMemberModal';
 import { getMyChatsApi } from '../redux/slice/chat.slice';
 import { IoArrowBack } from 'react-icons/io5';
+import { FaUserEdit } from 'react-icons/fa';
 
 export default function GroupDetailsPage() {
   const { chatId } = useParams();
@@ -18,11 +19,45 @@ export default function GroupDetailsPage() {
   const currentUser = useSelector((state) => state.auth.user);
   const [showAddMemberModal, setShowAddMemberModal] = useState(false);
 
+  const [groupName, setGroupName] = useState('');
+  const [editingName, setEditingName] = useState(false);
+  const [savingName, setSavingName] = useState(false);
+
+  const handleUpdateName = async () => {
+    try {
+      setSavingName(true);
+
+      await api.put(API_ENDPOINTS.UPDATE_GROUP_NAME, {
+        chatId: chatId,
+        chatName: groupName,
+        // name: groupName,
+        profilePictureUrl: groupDetails?.profile_picture_url || getProfileImage(groupDetails.name, groupDetails.id)
+      });
+
+        dispatch(fetchGroupDetails(chatId));
+      setEditingName(false);
+      showSuccess('Group name updated successfully');
+    } catch (error) {
+      showError(
+        error?.response?.data?.message ||
+        'Failed to update name'
+      );
+    } finally {
+      setSavingName(false);
+    }
+  };
+
   useEffect(() => {
     if (chatId) {
       dispatch(fetchGroupDetails(chatId));
     }
   }, [chatId, dispatch]);
+
+    useEffect(() => {
+    if (groupDetails) {
+      setGroupName(groupDetails.name);
+    }
+  }, [groupDetails]);
 
   const currentUserMember = groupDetails?.allMembers?.find(
     (member) => member.user?.id === currentUser?.id
@@ -79,12 +114,7 @@ export default function GroupDetailsPage() {
     <div className="min-h-screen bg-[#f8fafc]">
       {/* Header */}
       <div className="bg-white border-b border-gray-200 px-5 py-4 flex items-center gap-4">
-        {/* <button
-          onClick={() => navigate(-1)}
-          className="text-gray-600 hover:text-gray-800"
-        >
-          ← Back
-        </button> */}
+      
         <button
                   type="button"
                   onClick={() => navigate(-1)}
@@ -105,7 +135,53 @@ export default function GroupDetailsPage() {
               className="w-16 h-16 rounded-full object-cover"
             />
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900">{groupDetails.name}</h2>
+              {/* <h2 className="text-2xl font-semibold text-gray-900">{groupDetails.name}</h2> */}
+              {editingName ? (
+                  <>
+                    <input
+                      type="text"
+                      value={groupName}
+                      onChange={(e) => setGroupName(e.target.value)}
+                      className="border border-gray-300 rounded-xl px-3 py-1.5 text-lg font-semibold outline-none focus:border-blue-500"
+                    />
+              
+                    <button
+                      onClick={() => handleUpdateName()}
+                      disabled={
+                        savingName ||
+                        !groupName.trim() ||
+                        groupName === groupDetails.name
+                      }
+                      className={`px-4 py-1.5 rounded-xl text-sm font-medium text-white transition cursor-pointer ${savingName
+                          ? 'bg-gray-300 cursor-not-allowed'
+                          : 'bg-blue-500 hover:bg-blue-600'
+                        }`}
+                    >
+                      {savingName ? 'Saving...' : 'Save'}
+                    </button>
+              
+                    <button
+                      onClick={() => {
+                        setEditingName(false);
+                        setGroupName(groupDetails.name);
+                      }}
+                      className="px-4 py-1.5 rounded-xl text-sm font-medium bg-gray-100 hover:bg-gray-200 text-gray-700 transition cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-2xl font-semibold text-gray-900 inline-flex items-center gap-2">
+                      {groupDetails.name}
+                    </h2>
+              
+                    <FaUserEdit
+                      onClick={() => setEditingName(true)} 
+                      className="cursor-pointer text-gray-500 hover:text-blue-500 inline-block ml-2 text-lg"
+                    />
+                  </>
+                )}
               <p className="text-sm text-gray-500">
                 Created {new Date(groupDetails.createdAt).toLocaleDateString()}
               </p>

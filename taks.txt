@@ -1,8 +1,0 @@
-bugs:
-
-
-features;
-10. group name update feature
-12. update username also
-
-/update-group-info

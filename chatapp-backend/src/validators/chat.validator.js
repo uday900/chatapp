@@ -49,6 +49,7 @@ exports.markMessagesAsReadSchema = joi.object({
 });
 
 exports.updateGroupInfo = joi.object({
-    name: joi.string().max(100).required(),
-    profilePictureUrl: joi.string().uri().required()
+    chatId: joi.number().integer().positive().required(),
+    chatName: joi.string().max(100).required(),
+    profilePictureUrl: joi.string().uri().optional()
 })

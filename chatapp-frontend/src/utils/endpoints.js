@@ -16,6 +16,10 @@ export const API_ENDPOINTS = {
     USER_DETAILS: (userId) => `/users/${userId}`,
     CHAT_MEMBER: (chatId, memberId) => `/chats/${chatId}/members/${memberId}`,
   
+    UPDATE_USER: "/users",
+UPDATE_EMAIL: "/users/email",
+UPDATE_MOBILE: "/users/mobile",
+
     // Chat endpoints
     CHATS: "/chats/my-chats",
     CHAT_MESSAGES: (chatId) => `/chats/${chatId}/messages`,
@@ -26,6 +30,7 @@ export const API_ENDPOINTS = {
     CONTACTS: "/users/contacts",
     USER_BY_MOBILE: (mobile) => `/users/mobile/${mobile}`,
     GROUP_DETAILS: (chatId) => `/chats/${chatId}/group-details`,
+    UPDATE_GROUP_NAME: "chats/update-group-info",
 
     // Chat socket events
     CHAT_JOIN: "chat:join",

@@ -27,6 +27,7 @@ import { showError, showSuccess } from "../utils/toast";
 import AddGroupMemberModal from "../components/AddGroupMemberModal";
 import CreateGroupModal from "../components/CreateGroupModal";
 import ConfirmBox from "../components/ConfirmBox";
+import noChatBg from "/assets/no_chat_bg.png";
 
 const SIDEBAR_MIN_WIDTH = 300;
 const SIDEBAR_MAX_WIDTH = 520;
@@ -797,13 +798,23 @@ export default function ChatPage() {
         </div>
         <div className="bg-white">
           <div className="flex items-center justify-between gap-3 px-5 py-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Messages
+
+            {/* App name & tag line */}
+            {/* Brand */}
+            <div className="flex flex-col leading-none">
+              <h1 className="text-[34px] font-extrabold tracking-[-0.06em]">
+                <span className="text-slate-500">Chat</span>
+                <span className="bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-600 bg-clip-text text-transparent">
+                  Flow
+                </span>
+              </h1>
+
+              <p className="mt-1 pl-[2px] text-[13px] font-medium tracking-[0.02em] text-slate-400">
+                Connect Instantly. Flow Naturally.
               </p>
             </div>
 
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               <button
                 type="button"
                 onClick={() => navigate(REACT_ENDPOINTS.SETTINGS)}
@@ -1099,8 +1110,22 @@ export default function ChatPage() {
       {/* Chat Area */}
       <section className="flex-1 flex flex-col">
         {!selectedChat ? (
-          <div className="flex-1 flex items-center justify-center text-gray-500">
-            Select a chat to start messaging
+          <div className="flex-1 flex flex-col items-center justify-center bg-[#f6f8fc] text-center px-6">
+
+            <img
+              src={noChatBg}
+              alt="No chat selected"
+              className="w-full max-w-xs select-none"
+            />
+
+            <h2 className="mt-5 text-2xl font-semibold text-gray-700">
+              Select a chat
+            </h2>
+
+            <p className="mt-2 max-w-sm text-sm leading-6 text-gray-500">
+              Choose a conversation from the sidebar to start messaging with your contacts.
+            </p>
+
           </div>
         ) : (
           <>

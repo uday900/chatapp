@@ -403,8 +403,13 @@ const chatSlice = createSlice({
                     action.payload?.length > 0 &&
                     !state.selectedChat
                 ) {
-                    state.selectedChat =
-                        action.payload[0];
+                    state.selectedChat = action.payload[0];
+                    // reset unread count for this chat
+                    state.chats = state.chats.map((chat) =>
+                        chat.chatId === action.payload[0].chatId
+                            ? { ...chat, unreadCount: 0 }
+                            : chat
+                    );
                 }
             })
             .addCase(getMyChatsApi.rejected, (state, action) => {

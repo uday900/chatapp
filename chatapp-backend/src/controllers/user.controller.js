@@ -2,7 +2,7 @@ const { mapUserResponse } = require("../dto/user.dto");
 const userService = require("../services/user.service");
 const { createUserSchema } = require("../validators/auth.validator");
 const AppError = require("../utils/AppError");
-const { recordNotFound } = require("../utils/errorFactory");
+const { recordNotFound, invalidRequest } = require("../utils/errorFactory");
 const { successResponse } = require("../utils/response");
 
 
@@ -44,7 +44,7 @@ exports.updateUserNameAndProfilePicture = async (req, res, next) => {
     const { full_name, profile_picture } = req.body;
 
     if (!full_name && !profile_picture) {
-      throw new AppError("At least one of full_name or profile_picture must be provided", 400);
+      throw invalidRequest("At least one of full_name or profile_picture must be provided for update");
     }
 
     const updatedUser = await userService.updateUser(userId, { full_name, profile_picture });

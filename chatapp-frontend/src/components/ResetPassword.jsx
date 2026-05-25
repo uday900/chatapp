@@ -7,6 +7,7 @@ import { resetPassword } from "../api/auth/auth";
 import { showError, showSuccess } from "../utils/toast";
 import bgImage from "/assets/login_bg.png";
 import { REACT_ENDPOINTS } from "../utils/endpoints";
+import appLogo from "/assets/app-logo.png";
 
 const passwordSchema = Yup.string()
     .min(8, "Password must be at least 8 characters")
@@ -130,10 +131,9 @@ const ResetPassword = ({ resetToken, clearResetToken }) => {
                 {/* Center Card */} <div className="absolute inset-0 flex items-center justify-center">
                     <div className="w-full max-w-[380px] bg-white/95 backdrop-blur-md rounded-3xl shadow-lg border border-gray-100 px-8 py-8">
                         {/* Logo */}
-                        <div className="flex justify-center mb-5">
-                            <div className="w-11 h-11 rounded-xl bg-black flex items-center justify-center">
-                                <span className="text-white text-lg font-bold"> ⚡ </span>
-                            </div>
+                        <div className="flex justify-center mb-2">
+                                         <img src={appLogo} alt="App Logo" className="w-16 h-16" />
+                           
                         </div>
                         {/* Heading */}
                         <div className="text-center mb-7">

@@ -813,14 +813,25 @@ exports.leaveGroupChat = async (chatId, userId) => {
 };
 
 exports.updateGroupInfo = async (data) =>{
-    const { chatId, currentUserId, chatName, chatProfilePicture } = data;
+    const { chatId, userId, chatName, chatProfilePicture } = data;
     
     const chat = await Chat.findOne({
         where: {
             id: chatId,
-            type: "GROUP",
-            user_id: currentUserId
-        }
+            type: "GROUP"
+        },
+        include: [
+            {
+                model: ChatMember,
+                as: "members",
+                where: {
+                    user_id: userId,
+                    left_at: null
+                },
+                attributes: [],
+                required: true
+            }
+        ]
     });
     if (!chat) {
         throw invalidRequest(`Chat [${chatId}] not found or is not a group chat`);
