@@ -1,0 +1,14 @@
+
+phase 1
+-------
+features:
+readme file
+
+phase 2
+-------
+
+features:
+1. S3 integration for profile uploads, media sharing
+2. Chat delete, pin chat/messages
+3. Delete messages for current user
+4. User bio/about 

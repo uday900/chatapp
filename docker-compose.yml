@@ -3,9 +3,9 @@ version: "3.8"
 services:
   backend:
     build:
-      context: ./chatapp-backend
+      context: ./chatflow-backend
       dockerfile: Dockerfile
-    container_name: chatapp_backend
+    container_name: chatflow_backend
     restart: always
     ports:
       - "3000:3000"
@@ -15,43 +15,43 @@ services:
       DB_PORT: 5432
       DB_USER: darla
       DB_PASSWORD: 1234
-      DB_NAME: chatapp_dev
+      DB_NAME: chatflow
       REDIS_HOST: redis
       REDIS_PORT: 6379
     depends_on:
       - redis
       - postgres
     volumes:
-      - ./chatapp-backend:/chatapp
-      - /chatapp/node_modules
+      - ./chatflow-backend:/chatflow
+      - /chatflow/node_modules
 
   frontend:
     build:
-      context: ./chatapp-frontend
+      context: ./chatflow-frontend
       dockerfile: Dockerfile
-    container_name: chatapp_frontend
+    container_name: chatflow_frontend
     restart: always
     ports:
       - "5173:5173"
     depends_on:
       - backend
     volumes:
-      - ./chatapp-frontend:/chatapp
-      - /chatapp/node_modules
+      - ./chatflow-frontend:/chatflow
+      - /chatflow/node_modules
   redis:
     image: redis:latest
-    container_name: chatapp_redis
+    container_name: chatflow_redis
     ports:
       - "6379:6379"
   
   postgres:
     image: postgres:16
-    container_name: chatapp_postgres
+    container_name: chatflow_postgres
     restart: always
     environment:
       POSTGRES_USER: darla
       POSTGRES_PASSWORD: 1234
-      POSTGRES_DB: chatapp_dev
+      POSTGRES_DB: chatflow
       TZ: UTC
       PGTZ: UTC
     ports:

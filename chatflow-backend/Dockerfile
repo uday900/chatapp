@@ -1,6 +1,6 @@
 FROM node:20
 
-WORKDIR /chatapp
+WORKDIR /chatflow
 
 COPY package*.json ./
 
