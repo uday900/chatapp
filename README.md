@@ -83,7 +83,6 @@ chatflow/
 │   ├── src/
 │   │   ├── api/
 │   │   ├── components/
-│   │   ├── config/
 │   │   ├── hooks/
 │   │   ├── pages/
 │   │   ├── redux/
@@ -107,7 +106,7 @@ chatflow/
 ## 1️⃣ Clone Repository
 
 ```bash
-git clone https://github.com/uday900/chatapp.git
+git clone https://github.com/uday900/chatflow.git
 cd chatflow
 ```
 

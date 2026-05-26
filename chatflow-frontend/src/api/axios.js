@@ -1,11 +1,12 @@
 import axios from "axios";
 import { showError } from "../utils/toast";
-import { ENV } from "../config/env";
 import { STORAGE_KEYS } from "../utils/constants";
 import { API_ENDPOINTS } from "../utils/endpoints";
 
+const apiUrl = import.meta.env.VITE_API_BASE_URL || ENV.API_BASE;
+
 const api = axios.create({
-  baseURL: ENV.API_BASE,
+  baseURL: apiUrl,
   headers: {
     "Content-Type": "application/json",
   },

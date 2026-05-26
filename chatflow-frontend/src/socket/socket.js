@@ -1,7 +1,8 @@
 import { io } from "socket.io-client";
 
-import { ENV } from "../config/env";
 import { STORAGE_KEYS } from "../utils/constants";
+
+const wsUrl = import.meta.env.VITE_WEBSOCKET_URL || ENV.WS_URL;
 
 let socket = null;
 
@@ -17,7 +18,7 @@ export const connectSocket = () => {
         return;
     }
 
-    socket = io(ENV.WS_URL, {
+    socket = io(wsUrl, {
         transports: ['websocket'],
         auth: {
             token: `Bearer ${token}`,
