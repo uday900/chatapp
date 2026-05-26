@@ -77,7 +77,7 @@ chatflow/
 │   │
 │   ├── package.json
 │   ├── Dockerfile
-│   └── .env
+│   └── .env.example
 │
 ├── chatflow-frontend/
 │   ├── src/
@@ -93,6 +93,7 @@ chatflow/
 │   │
 │   ├── package.json
 │   └── Dockerfile
+│   └── .env.example
 │   └── index.html
 │
 ├── docker-compose.yml
@@ -114,24 +115,25 @@ cd chatflow
 
 # ⚙️ Environment Variables
 
-## Backend `.env`
+Both frontend and backend use environment variables.
 
-```env
-PORT=3000
+## Backend Setup
 
-DB_HOST=postgres
-DB_PORT=5432
-DB_USER=postgres
-DB_PASSWORD=postgres
-DB_NAME=chatflow
-
-JWT_SECRET=your_jwt_secret
-
-REDIS_HOST=redis
-REDIS_PORT=6379
-
-CLIENT_URL=http://localhost:5173
+```bash
+cd chatflow-backend
+cp .env.example .env
 ```
+
+## Frontend Setup
+
+```bash
+cd chatflow-frontend
+cp .env.example .env
+```
+
+Update the `.env` values according to your local setup.
+
+---
 
 ---
 
@@ -175,34 +177,179 @@ npm run dev
 ```
 
 ---
+# 🌐 REST API Endpoints
 
+All APIs are versioned under:
+
+```txt
+/api/v1
+```
+
+---
+
+## 🔐 Authentication (5)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/auth/register` | Register a new user |
+| `POST` | `/api/v1/auth/login` | Authenticate user and generate JWT tokens |
+| `POST` | `/api/v1/auth/forgot-password` | Send OTP for password reset |
+| `POST` | `/api/v1/auth/verify-forgot-otp` | Verify forgot password OTP |
+| `POST` | `/api/v1/auth/reset-password` | Reset user password using verified OTP |
+
+---
+
+## 👤 Users
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/users/profile` | Get logged-in user profile |
+| `PUT` | `/api/v1/users/profile` | Update user profile |
+| `GET` | `/api/v1/users/contacts` | Get user contacts |
+| `GET` | `/api/v1/users/mobile/:mobileNumber` | Search user by mobile number |
+
+---
+
+## 💬 Chats
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/chats` | Get all chats |
+| `POST` | `/api/v1/chats` | Create new chat |
+| `GET` | `/api/v1/chats/:id` | Get single chat details |
+| `GET` | `/api/v1/chats/:id/messages` | Get chat messages |
+| `POST` | `/api/v1/chats/group` | Create group chat |
+| `POST` | `/api/v1/chats/:id/members` | Add members to group |
+| `DELETE` | `/api/v1/chats/:id/members/:userId` | Remove group member |
+
+---
+
+## 📩 Messages
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `POST` | `/api/v1/chats/:id/messages` | Send message |
+| `PUT` | `/api/v1/chats/:id/messages/:messageId` | Edit message |
+| `DELETE` | `/api/v1/chats/:id/messages/:messageId` | Delete message |
+| `PUT` | `/api/v1/chats/:id/read` | Mark messages as read |
+
+---
+
+## 📘 API Documentation
+
+Swagger API Docs:
+
+```txt
+http://localhost:3000/api/docs
+```
+
+---
 # 🔌 Socket.io Events
 
-## Client → Server
-
-| Event                | Purpose               |
-| -------------------- | --------------------- |
-| `message:send`       | Send new message      |
-| `message:seen`       | Mark messages as seen |
-| `message:edit`       | Edit message          |
-| `message:delete`     | Delete message        |
-| `message:typing`     | Typing indicator      |
-| `presence:heartbeat` | Online presence       |
+Real-time communication in ChatFlow is powered using Socket.io.
 
 ---
 
-## Server → Client
+## Client → Server Events
 
-| Event              | Purpose             |
-| ------------------ | ------------------- |
-| `message:new`      | Receive new message |
-| `receipt:seen`     | Seen receipt        |
-| `typing:started`   | User typing         |
-| `presence:online`  | User online         |
-| `presence:offline` | User offline        |
+| Event | Payload | Purpose |
+|---|---|---|
+| `chat:join` | `{ chatId }` | Join a chat room |
+| `message:send` | `{ chatId, message, replyToMessageId }` | Send a new message |
+| `message:update` | `{ chatId, messageId, message }` | Edit an existing message |
+| `message:delete` | `{ chatId, messageId }` | Delete a message |
+| `typing:start` | `{ chatId }` | Notify users typing started |
+| `typing:stop` | `{ chatId }` | Notify users typing stopped |
+| `presence:heartbeat` | `{}` | Refresh online presence |
 
 ---
 
+## Server → Client Events
+
+| Event | Payload | Purpose |
+|---|---|---|
+| `message:new` | `{ message }` | Receive new chat message |
+| `message:updated` | `{ messageId, message }` | Receive edited message update |
+| `message:deleted` | `{ messageId }` | Receive deleted message update |
+| `typing:started` | `{ chatId, userId, username }` | User started typing |
+| `typing:stopped` | `{ chatId, userId }` | User stopped typing |
+| `presence:online` | `{ userId }` | User came online |
+| `presence:offline` | `{ userId, lastSeen }` | User went offline |
+| `chat:error` | `{ message }` | Socket validation/business errors |
+
+---
+
+## 🔄 Presence System
+
+ChatFlow uses Redis-based presence management.
+
+### How it works
+
+- User connects via Socket.io
+- Redis key is created:
+
+```txt
+presence:USER_<userId>
+```
+
+- TTL: `30 seconds`
+- Client sends `presence:heartbeat` every 20 seconds
+- On disconnect:
+  - Redis key removed
+  - `last_seen` updated in PostgreSQL
+  - `presence:offline` event broadcasted
+
+This avoids continuous database writes and improves scalability.
+
+---
+
+## ⌨️ Typing Indicators
+
+Typing indicators are fully real-time.
+
+### Flow
+
+1. Client emits:
+
+```txt
+typing:start
+```
+
+2. Other room members receive:
+
+```txt
+typing:started
+```
+
+3. When typing stops:
+
+```txt
+typing:stop
+```
+
+4. Other users receive:
+
+```txt
+typing:stopped
+```
+
+---
+
+## 📝 Message Editing Rules
+
+- Only message sender can edit
+- Deleted messages cannot be edited
+- Messages can only be edited on the same day they were sent
+
+---
+
+## 🗑️ Message Delete Rules
+
+- Only sender can delete messages
+- Deleted messages are soft deleted
+- Delete updates are emitted instantly to all room members
+
+---
 # 🧠 Architecture
 
 ```txt
@@ -224,45 +371,10 @@ PostgreSQL Database
 
 # 📸 Screenshots
 
-Add your application screenshots here.
-
 ```md
 ![Login](./screenshots/login.png)
 ![Chat](./screenshots/chat.png)
 ```
-
----
-
-# 🔐 Authentication
-
-* JWT Access Token
-* Refresh Token Support
-* Protected Routes
-* Google OAuth (Optional)
-
----
-
-# 📦 Deployment
-
-Production deployment supports:
-
-* AWS EC2
-* AWS RDS
-* AWS S3
-* NGINX Reverse Proxy
-* Docker Containers
-* GitHub Actions CI/CD
-
----
-
-# 🛠️ Future Improvements
-
-* Voice & Video Calling
-* Push Notifications
-* End-to-End Encryption
-* Message Pinning
-* AI Chat Assistant
-* Mobile App (React Native)
 
 ---
 
@@ -273,13 +385,6 @@ Production deployment supports:
 Full Stack Developer
 Hyderabad, India
 
----
-
-# 📄 License
-
-MIT License
-
----
 
 # ⭐ Support
 
