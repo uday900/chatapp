@@ -369,8 +369,9 @@ PostgreSQL Database
 # 📸 Screenshots
 
 ```md
-![Login](./screenshots/login.png)
-![Chat](./screenshots/chat.png)
+![Login Page](./project-info/Images/login-page.png)
+![Individual Chat](./project-info/Images/individual-chat.png)
+![Group Chat](./project-info/Images/group-chat.png)
 ```
 
 ---
