@@ -199,39 +199,36 @@ All APIs are versioned under:
 
 ---
 
-## 👤 Users
+## 👤 Users (7)
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/v1/users/profile` | Get logged-in user profile |
-| `PUT` | `/api/v1/users/profile` | Update user profile |
+| `GET` | `/api/v1/users` | Get all users list |
+| `GET` | `/api/v1/users/:id` | Get user details |
 | `GET` | `/api/v1/users/contacts` | Get user contacts |
-| `GET` | `/api/v1/users/mobile/:mobileNumber` | Search user by mobile number |
+| `PATCH` | `/api/v1/users` | Update user name & profile |
+| `PATCH` | `/api/v1/users/email` | Update user email |
+| `PATCH` | `/api/v1/users/mobile` | Update user mobile |
+| `GET` | `/api/v1/users/mobile/:mobileNumber` | Get user details by mobile |
 
 ---
 
-## 💬 Chats
+## 💬 Chats (12)
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/v1/chats` | Get all chats |
-| `POST` | `/api/v1/chats` | Create new chat |
-| `GET` | `/api/v1/chats/:id` | Get single chat details |
+| `GET` | `/api/v1/chats/my-chats` | Get all chats |
+| `POST` | `/api/v1/chats/create` | Create new chat |
 | `GET` | `/api/v1/chats/:id/messages` | Get chat messages |
-| `POST` | `/api/v1/chats/group` | Create group chat |
-| `POST` | `/api/v1/chats/:id/members` | Add members to group |
-| `DELETE` | `/api/v1/chats/:id/members/:userId` | Remove group member |
-
----
-
-## 📩 Messages
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `POST` | `/api/v1/chats/:id/messages` | Send message |
-| `PUT` | `/api/v1/chats/:id/messages/:messageId` | Edit message |
-| `DELETE` | `/api/v1/chats/:id/messages/:messageId` | Delete message |
-| `PUT` | `/api/v1/chats/:id/read` | Mark messages as read |
+| `PUT` | `/api/v1/chats/:id/messages/read` | Mark chat messages as read |
+| `DELETE` | `/api/v1/chats/:id/clear` | Clear chat messages |
+| `GET` | `/api/v1/chats/:id/group-details` | Get group chat details |
+| `PUT` | `/api/v1/chats/update-group-info` | Update group info |
+| `POST` | `/api/v1/chats/:id/members` | Add a member to group |
+| `DELETE` | `/api/v1/chats/:id/members/:userId` | Remove from group |
+| `DELETE` | `/api/v1/chats/:id/leave` | Left from group |
+| `PUT` | `/api/v1/chats/update-group-info` | Update group info |
+| `GET` | `/api/v1/chats/:groupId/available-members` | Fetch contacts with non group members |
 
 ---
 
