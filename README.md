@@ -368,11 +368,9 @@ PostgreSQL Database
 
 # 📸 Screenshots
 
-```md
 ![Login Page](./project-info/Images/login-page.png)
 ![Individual Chat](./project-info/Images/individual-chat.png)
 ![Group Chat](./project-info/Images/group-chat.png)
-```
 
 ---
 
